@@ -1,13 +1,13 @@
-import { CarouselSlide, TextStyle } from "@/types/carousel";
-import { useRef, useState } from "react";
+import { CarouselSlide, TextStyle, StickerItem } from "@/types/carousel";
+import { useRef, useState, useCallback } from "react";
 
 interface SlideRendererProps {
   slide: CarouselSlide;
   index: number;
   total: number;
   onUpdate: (field: string, value: string) => void;
-  onUpdateStyle?: (field: "title" | "body", style: Partial<TextStyle>) => void;
   onFieldFocus?: (field: "title" | "body") => void;
+  onMoveSticker?: (id: string, x: number, y: number) => void;
   exportMode?: boolean;
 }
 
@@ -27,7 +27,6 @@ const EditableText = ({
   onFocus?: () => void;
 }) => {
   const ref = useRef<HTMLElement>(null);
-
   return (
     <Tag
       ref={ref as any}
@@ -54,28 +53,18 @@ const Footer = () => (
 const BackgroundImage = ({ src }: { src?: string }) => {
   if (!src) return null;
   return (
-    <>
-      <img
-        src={src}
-        alt=""
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          zIndex: 0,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(180deg, rgba(26,26,46,0.7) 0%, rgba(22,33,62,0.85) 100%)",
-          zIndex: 1,
-        }}
-      />
-    </>
+    <img
+      src={src}
+      alt=""
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        zIndex: 0,
+      }}
+    />
   );
 };
 
@@ -109,13 +98,63 @@ function getTextStyle(style?: TextStyle, defaults?: Partial<TextStyle>): React.C
     fontSize: style?.fontSize || defaults?.fontSize,
     fontWeight: style?.fontWeight || defaults?.fontWeight || "bold",
     textAlign: style?.textAlign || defaults?.textAlign,
+    color: style?.color || defaults?.color,
   };
 }
 
+const DraggableSticker = ({
+  sticker,
+  onMove,
+}: {
+  sticker: StickerItem;
+  onMove?: (id: string, x: number, y: number) => void;
+}) => {
+  const [dragging, setDragging] = useState(false);
+  const startRef = useRef({ x: 0, y: 0, sx: 0, sy: 0 });
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+    startRef.current = { x: e.clientX, y: e.clientY, sx: sticker.x, sy: sticker.y };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const scale = 0.45;
+      const dx = (ev.clientX - startRef.current.x) / scale;
+      const dy = (ev.clientY - startRef.current.y) / scale;
+      onMove?.(sticker.id, startRef.current.sx + dx, startRef.current.sy + dy);
+    };
+    const onMouseUp = () => {
+      setDragging(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }, [sticker, onMove]);
+
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      style={{
+        position: "absolute",
+        left: sticker.x,
+        top: sticker.y,
+        fontSize: sticker.size,
+        transform: `rotate(${sticker.rotation}deg)`,
+        cursor: dragging ? "grabbing" : "grab",
+        zIndex: 10,
+        userSelect: "none",
+        lineHeight: 1,
+      }}
+    >
+      {sticker.emoji}
+    </div>
+  );
+};
+
 const CoverSlide = ({
-  slide,
-  onUpdate,
-  onFieldFocus,
+  slide, onUpdate, onFieldFocus,
 }: {
   slide: CarouselSlide;
   onUpdate: SlideRendererProps["onUpdate"];
@@ -128,19 +167,17 @@ const CoverSlide = ({
       onChange={(v) => onUpdate("title", v)}
       tag="h1"
       className="leading-tight mb-8 w-full"
-      style={getTextStyle(slide.titleStyle, { fontSize: 48, textAlign: "center" })}
+      style={getTextStyle(slide.titleStyle, { fontSize: 48, textAlign: "center", color: "#ffffff" })}
       onFocus={() => onFieldFocus?.("title")}
     />
     <div className="w-20 h-1 mt-4 mb-8" style={{ backgroundColor: "#e94560" }} />
-    <p className="text-xl opacity-70 mt-4" style={{ position: "relative", zIndex: 2 }}>Deslize →</p>
+    <p className="text-xl opacity-70 mt-4" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>Deslize →</p>
     <Footer />
   </div>
 );
 
 const ContentSlide = ({
-  slide,
-  onUpdate,
-  onFieldFocus,
+  slide, onUpdate, onFieldFocus,
 }: {
   slide: CarouselSlide;
   onUpdate: SlideRendererProps["onUpdate"];
@@ -169,7 +206,7 @@ const ContentSlide = ({
         onChange={(v) => onUpdate("body", v)}
         tag="p"
         className="leading-relaxed opacity-90 flex-1 w-full"
-        style={getTextStyle(slide.bodyStyle, { fontSize: 20, fontWeight: "normal" })}
+        style={getTextStyle(slide.bodyStyle, { fontSize: 20, fontWeight: "normal", color: "#ffffff" })}
         onFocus={() => onFieldFocus?.("body")}
       />
     )}
@@ -181,9 +218,7 @@ const ContentSlide = ({
 );
 
 const CTASlide = ({
-  slide,
-  onUpdate,
-  onFieldFocus,
+  slide, onUpdate, onFieldFocus,
 }: {
   slide: CarouselSlide;
   onUpdate: SlideRendererProps["onUpdate"];
@@ -199,14 +234,17 @@ const CTASlide = ({
       style={getTextStyle(slide.titleStyle, { fontSize: 40, textAlign: "center" })}
       onFocus={() => onFieldFocus?.("title")}
     />
-    <p className="text-2xl opacity-80 mb-4" style={{ position: "relative", zIndex: 2 }}>@orlandofastpass</p>
-    <p className="text-lg opacity-60" style={{ position: "relative", zIndex: 2 }}>orlandofastpass.com.br</p>
+    <p className="text-2xl opacity-80 mb-4" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>@orlandofastpass</p>
+    <p className="text-lg opacity-60" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>orlandofastpass.com.br</p>
     <Footer />
   </div>
 );
 
-export function SlideRenderer({ slide, index, total, onUpdate, onUpdateStyle, onFieldFocus, exportMode }: SlideRendererProps) {
+export function SlideRenderer({ slide, index, total, onUpdate, onFieldFocus, onMoveSticker, exportMode }: SlideRendererProps) {
   const isLoadingImage = slide.backgroundImage === "loading";
+  const gFrom = slide.gradientFrom || "#1a1a2e";
+  const gTo = slide.gradientTo || "#16213e";
+  const overlayOpacity = slide.overlayOpacity ?? 0.75;
 
   return (
     <div
@@ -214,7 +252,7 @@ export function SlideRenderer({ slide, index, total, onUpdate, onUpdateStyle, on
       style={{
         width: 1080,
         height: 1350,
-        background: "linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)",
+        background: `linear-gradient(180deg, ${gFrom} 0%, ${gTo} 100%)`,
         color: "#ffffff",
         fontFamily: "'Inter', system-ui, sans-serif",
         transform: exportMode ? undefined : `scale(${0.45})`,
@@ -226,7 +264,23 @@ export function SlideRenderer({ slide, index, total, onUpdate, onUpdateStyle, on
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
       <BackgroundImage src={isLoadingImage ? undefined : slide.backgroundImage} />
+      {/* Overlay */}
+      {slide.backgroundImage && slide.backgroundImage !== "loading" && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `linear-gradient(180deg, ${gFrom} 0%, ${gTo} 100%)`,
+            opacity: overlayOpacity,
+            zIndex: 1,
+          }}
+        />
+      )}
       {isLoadingImage && <LoadingOverlay />}
+      {/* Stickers */}
+      {slide.stickers?.map((sticker) => (
+        <DraggableSticker key={sticker.id} sticker={sticker} onMove={onMoveSticker} />
+      ))}
       {slide.type === "cover" && <CoverSlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
       {slide.type === "content" && <ContentSlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
       {slide.type === "cta" && <CTASlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}

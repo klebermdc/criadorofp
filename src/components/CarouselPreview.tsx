@@ -1,4 +1,4 @@
-import { CarouselSlide, TextStyle } from "@/types/carousel";
+import { CarouselSlide, TextStyle, StickerItem } from "@/types/carousel";
 import { SlideRenderer } from "./SlideRenderer";
 import { SlideEditor } from "./SlideEditor";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
@@ -9,11 +9,17 @@ import JSZip from "jszip";
 
 interface CarouselPreviewProps {
   slides: CarouselSlide[];
-  onUpdateSlide: (index: number, field: string, value: string) => void;
+  onUpdateSlide: (index: number, field: string, value: any) => void;
   onUpdateSlideStyle: (index: number, field: "title" | "body", style: Partial<TextStyle>) => void;
+  onAddSticker: (index: number, emoji: string) => void;
+  onRemoveSticker: (index: number, stickerId: string) => void;
+  onMoveSticker: (index: number, stickerId: string, x: number, y: number) => void;
 }
 
-export function CarouselPreview({ slides, onUpdateSlide, onUpdateSlideStyle }: CarouselPreviewProps) {
+export function CarouselPreview({
+  slides, onUpdateSlide, onUpdateSlideStyle,
+  onAddSticker, onRemoveSticker, onMoveSticker,
+}: CarouselPreviewProps) {
   const [current, setCurrent] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [activeField, setActiveField] = useState<"title" | "body" | null>(null);
@@ -62,12 +68,25 @@ export function CarouselPreview({ slides, onUpdateSlide, onUpdateSlideStyle }: C
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
       {/* Editor toolbar */}
-      <SlideEditor
-        activeField={activeField}
-        titleStyle={currentSlide?.titleStyle || {}}
-        bodyStyle={currentSlide?.bodyStyle || {}}
-        onUpdateStyle={(field, style) => onUpdateSlideStyle(current, field, style)}
-      />
+      {currentSlide && (
+        <SlideEditor
+          activeField={activeField}
+          titleStyle={currentSlide.titleStyle || {}}
+          bodyStyle={currentSlide.bodyStyle || {}}
+          overlayOpacity={currentSlide.overlayOpacity ?? 0.75}
+          gradientFrom={currentSlide.gradientFrom || "#1a1a2e"}
+          gradientTo={currentSlide.gradientTo || "#16213e"}
+          stickers={currentSlide.stickers || []}
+          onUpdateStyle={(field, style) => onUpdateSlideStyle(current, field, style)}
+          onUpdateOverlay={(opacity) => onUpdateSlide(current, "overlayOpacity", opacity)}
+          onUpdateGradient={(from, to) => {
+            onUpdateSlide(current, "gradientFrom", from);
+            onUpdateSlide(current, "gradientTo", to);
+          }}
+          onAddSticker={(emoji) => onAddSticker(current, emoji)}
+          onRemoveSticker={(id) => onRemoveSticker(current, id)}
+        />
+      )}
 
       {/* Slide preview */}
       <div className="relative overflow-hidden" style={{ width: 1080 * 0.45, height: 1350 * 0.45 }}>
@@ -83,6 +102,7 @@ export function CarouselPreview({ slides, onUpdateSlide, onUpdateSlideStyle }: C
               total={slides.length}
               onUpdate={(field, value) => onUpdateSlide(i, field, value)}
               onFieldFocus={(field) => setActiveField(field)}
+              onMoveSticker={(id, x, y) => onMoveSticker(i, id, x, y)}
             />
           </div>
         ))}
