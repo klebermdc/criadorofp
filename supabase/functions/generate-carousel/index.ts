@@ -14,9 +14,9 @@ serve(async (req) => {
   try {
     const { topic, style } = await req.json();
 
-    const MINIMAX_API_KEY = Deno.env.get("MINIMAX_API_KEY");
-    if (!MINIMAX_API_KEY) {
-      throw new Error("MINIMAX_API_KEY not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY not configured");
     }
 
     const systemPrompt = `Você é um especialista em marketing digital para a agência de viagens Orlando Fast Pass (OFP). 
@@ -31,14 +31,14 @@ O carrossel deve ter o formato JSON com um array "slides" contendo:
 Retorne APENAS o JSON válido, sem markdown. Formato:
 {"slides":[{"type":"cover","title":"..."},{"type":"content","title":"...","body":"...","emoji":"...","number":1},{"type":"cta","title":"Gostou? Salva e compartilha!"}]}`;
 
-    const response = await fetch("https://api.minimax.io/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${MINIMAX_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "MiniMax-M2.5",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -47,19 +47,31 @@ Retorne APENAS o JSON válido, sem markdown. Formato:
           },
         ],
         temperature: 0.8,
-        response_format: { type: "json_object" },
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("MiniMax error:", response.status, error);
+      console.error("AI Gateway error:", response.status, error);
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos em Settings > Workspace > Usage." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       throw new Error("Failed to generate content");
     }
 
     const data = await response.json();
     const content = data.choices[0].message.content;
-    const parsed = JSON.parse(content);
+    
+    // Clean markdown fences if present
+    const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const parsed = JSON.parse(cleaned);
 
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
