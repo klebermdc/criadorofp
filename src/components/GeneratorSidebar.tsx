@@ -6,6 +6,7 @@ import { STYLES, CarouselStyle, CarouselData } from "@/types/carousel";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, History, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import ofpLogo from "@/assets/ofp-logo.png";
 
 interface GeneratorSidebarProps {
   onGenerated: (data: CarouselData) => void;
@@ -144,11 +145,14 @@ export function GeneratorSidebar({ onGenerated, onLoadCarousel, onUpdateSlides, 
   return (
     <div className="w-full md:w-80 border-r border-border flex flex-col h-full bg-card/30">
       {/* Logo */}
-      <div className="p-6 border-b border-border">
-        <h1 className="text-xl font-bold">
-          <span style={{ color: "#e94560" }}>OFP</span> Carousel Generator
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerador de carrossel com IA</p>
+      <div className="p-4 border-b border-border flex items-center gap-3">
+        <img src={ofpLogo} alt="OFP Creator" className="h-10 w-10" />
+        <div>
+          <h1 className="text-lg font-bold">
+            <span style={{ color: "#e94560" }}>OFP</span> Creator
+          </h1>
+          <p className="text-xs text-muted-foreground">Gerador de carrossel com IA</p>
+        </div>
       </div>
 
       {/* Form */}
