@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import JSZip from "jszip";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CarouselPreviewProps {
   slides: CarouselSlide[];
@@ -29,8 +30,10 @@ interface CarouselPreviewProps {
   onApplyTemplate: (template: SlideTemplate) => void;
 }
 
-const ZOOM_LEVELS = [0.3, 0.45, 0.55, 0.7];
-const ZOOM_LABELS = ["30%", "45%", "55%", "70%"];
+const ZOOM_LEVELS_DESKTOP = [0.3, 0.45, 0.55, 0.7];
+const ZOOM_LABELS_DESKTOP = ["30%", "45%", "55%", "70%"];
+const ZOOM_LEVELS_MOBILE = [0.2, 0.25, 0.3, 0.35];
+const ZOOM_LABELS_MOBILE = ["20%", "25%", "30%", "35%"];
 
 export function CarouselPreview({
   slides, onUpdateSlide, onUpdateSlideStyle,
@@ -40,6 +43,9 @@ export function CarouselPreview({
   onToggleElementVisibility, onDeleteElement,
   onApplyTemplate,
 }: CarouselPreviewProps) {
+  const isMobile = useIsMobile();
+  const ZOOM_LEVELS = isMobile ? ZOOM_LEVELS_MOBILE : ZOOM_LEVELS_DESKTOP;
+  const ZOOM_LABELS = isMobile ? ZOOM_LABELS_MOBILE : ZOOM_LABELS_DESKTOP;
   const [current, setCurrent] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [activeField, setActiveField] = useState<"title" | "body" | null>(null);
