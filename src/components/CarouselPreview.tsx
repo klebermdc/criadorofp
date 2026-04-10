@@ -57,7 +57,7 @@ export function CarouselPreview({ slides, onUpdateSlide }: CarouselPreviewProps)
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
       {/* Slide preview */}
-      <div className="relative" style={{ width: 1080 * 0.45, height: 1350 * 0.45 }}>
+      <div className="relative overflow-hidden" style={{ width: 1080 * 0.45, height: 1350 * 0.45 }}>
         {slides.map((slide, i) => (
           <div
             key={i}
