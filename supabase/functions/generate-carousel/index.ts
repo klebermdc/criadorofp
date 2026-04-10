@@ -14,9 +14,9 @@ serve(async (req) => {
   try {
     const { topic, style } = await req.json();
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY not configured");
+    const MINIMAX_API_KEY = Deno.env.get("MINIMAX_API_KEY");
+    if (!MINIMAX_API_KEY) {
+      throw new Error("MINIMAX_API_KEY not configured");
     }
 
     const systemPrompt = `Você é um especialista em marketing digital para a agência de viagens Orlando Fast Pass (OFP). 
@@ -31,14 +31,14 @@ O carrossel deve ter o formato JSON com um array "slides" contendo:
 Retorne APENAS o JSON válido, sem markdown. Formato:
 {"slides":[{"type":"cover","title":"..."},{"type":"content","title":"...","body":"...","emoji":"...","number":1},{"type":"cta","title":"Gostou? Salva e compartilha!"}]}`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.minimax.io/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${MINIMAX_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "MiniMax-M2.5",
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -53,7 +53,7 @@ Retorne APENAS o JSON válido, sem markdown. Formato:
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("OpenAI error:", error);
+      console.error("MiniMax error:", response.status, error);
       throw new Error("Failed to generate content");
     }
 
