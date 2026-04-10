@@ -1,23 +1,44 @@
-import { CarouselSlide, TextStyle, StickerItem } from "@/types/carousel";
+import { CarouselSlide, TextStyle, StickerItem, TextBoxItem, ShapeItem } from "@/types/carousel";
 import { useRef, useState, useCallback } from "react";
 
 interface SlideRendererProps {
   slide: CarouselSlide;
   index: number;
   total: number;
-  onUpdate: (field: string, value: string) => void;
+  onUpdate: (field: string, value: any) => void;
   onFieldFocus?: (field: "title" | "body") => void;
   onMoveSticker?: (id: string, x: number, y: number) => void;
+  onMoveTextBox?: (id: string, x: number, y: number) => void;
+  onMoveShape?: (id: string, x: number, y: number) => void;
+  onUpdateTextBox?: (id: string, text: string) => void;
   exportMode?: boolean;
+  scale?: number;
+  showGrid?: boolean;
+}
+
+function getTextStyle(style?: TextStyle, defaults?: Partial<TextStyle>): React.CSSProperties {
+  const s = { ...defaults, ...style };
+  const css: React.CSSProperties = {
+    fontSize: s.fontSize,
+    fontWeight: s.fontWeight || "bold",
+    textAlign: s.textAlign,
+    color: s.color,
+    fontFamily: s.fontFamily ? `'${s.fontFamily}', sans-serif` : undefined,
+    letterSpacing: s.letterSpacing ? `${s.letterSpacing}px` : undefined,
+    lineHeight: s.lineHeight || undefined,
+  };
+  if (s.textShadow) {
+    const i = s.textShadowIntensity || 4;
+    css.textShadow = `0 ${i}px ${i * 2}px rgba(0,0,0,0.7)`;
+  }
+  if (s.textStroke) {
+    (css as any).WebkitTextStroke = `1px ${s.textStrokeColor || "#000000"}`;
+  }
+  return css;
 }
 
 const EditableText = ({
-  value,
-  onChange,
-  className,
-  tag: Tag = "div",
-  style,
-  onFocus,
+  value, onChange, className, tag: Tag = "div", style, onFocus,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -25,22 +46,18 @@ const EditableText = ({
   tag?: "div" | "span" | "h1" | "h2" | "p";
   style?: React.CSSProperties;
   onFocus?: () => void;
-}) => {
-  const ref = useRef<HTMLElement>(null);
-  return (
-    <Tag
-      ref={ref as any}
-      contentEditable
-      suppressContentEditableWarning
-      onBlur={(e) => onChange(e.currentTarget.textContent || "")}
-      onFocus={onFocus}
-      className={`outline-none focus:ring-2 focus:ring-ofp-red/50 focus:rounded px-1 cursor-text ${className}`}
-      style={{ position: "relative", zIndex: 2, ...style }}
-    >
-      {value}
-    </Tag>
-  );
-};
+}) => (
+  <Tag
+    contentEditable
+    suppressContentEditableWarning
+    onBlur={(e) => onChange((e.currentTarget as HTMLElement).textContent || "")}
+    onFocus={onFocus}
+    className={`outline-none focus:ring-2 focus:ring-red-500/50 focus:rounded px-1 cursor-text ${className}`}
+    style={{ position: "relative", zIndex: 2, ...style }}
+  >
+    {value}
+  </Tag>
+);
 
 const Footer = () => (
   <div className="absolute bottom-8 left-0 right-0 text-center" style={{ zIndex: 2 }}>
@@ -53,76 +70,39 @@ const Footer = () => (
 const BackgroundImage = ({ src }: { src?: string }) => {
   if (!src) return null;
   return (
-    <img
-      src={src}
-      alt=""
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        zIndex: 0,
-      }}
-    />
+    <img src={src} alt="" style={{
+      position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0,
+    }} />
   );
 };
 
 const LoadingOverlay = () => (
-  <div
-    style={{
-      position: "absolute",
-      inset: 0,
-      zIndex: 1,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "rgba(0,0,0,0.3)",
-    }}
-  >
-    <div
-      style={{
-        width: 40,
-        height: 40,
-        border: "3px solid rgba(255,255,255,0.3)",
-        borderTopColor: "#e94560",
-        borderRadius: "50%",
-        animation: "spin 1s linear infinite",
-      }}
-    />
+  <div style={{
+    position: "absolute", inset: 0, zIndex: 1,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    background: "rgba(0,0,0,0.3)",
+  }}>
+    <div style={{
+      width: 40, height: 40,
+      border: "3px solid rgba(255,255,255,0.3)", borderTopColor: "#e94560",
+      borderRadius: "50%", animation: "spin 1s linear infinite",
+    }} />
   </div>
 );
 
-function getTextStyle(style?: TextStyle, defaults?: Partial<TextStyle>): React.CSSProperties {
-  return {
-    fontSize: style?.fontSize || defaults?.fontSize,
-    fontWeight: style?.fontWeight || defaults?.fontWeight || "bold",
-    textAlign: style?.textAlign || defaults?.textAlign,
-    color: style?.color || defaults?.color,
-  };
-}
-
-const DraggableSticker = ({
-  sticker,
-  onMove,
-}: {
-  sticker: StickerItem;
-  onMove?: (id: string, x: number, y: number) => void;
-}) => {
+/* Draggable wrapper */
+function useDrag(onMove?: (id: string, x: number, y: number) => void, id?: string, initX = 0, initY = 0, scale = 0.45) {
   const [dragging, setDragging] = useState(false);
   const startRef = useRef({ x: 0, y: 0, sx: 0, sy: 0 });
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setDragging(true);
-    startRef.current = { x: e.clientX, y: e.clientY, sx: sticker.x, sy: sticker.y };
-
+    startRef.current = { x: e.clientX, y: e.clientY, sx: initX, sy: initY };
     const onMouseMove = (ev: MouseEvent) => {
-      const scale = 0.45;
       const dx = (ev.clientX - startRef.current.x) / scale;
       const dy = (ev.clientY - startRef.current.y) / scale;
-      onMove?.(sticker.id, startRef.current.sx + dx, startRef.current.sy + dy);
+      onMove?.(id!, startRef.current.sx + dx, startRef.current.sy + dy);
     };
     const onMouseUp = () => {
       setDragging(false);
@@ -131,84 +111,114 @@ const DraggableSticker = ({
     };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-  }, [sticker, onMove]);
+  }, [id, initX, initY, onMove, scale]);
 
+  return { dragging, onMouseDown };
+}
+
+const DraggableSticker = ({ sticker, onMove, scale }: { sticker: StickerItem; onMove?: (id: string, x: number, y: number) => void; scale: number }) => {
+  const { dragging, onMouseDown } = useDrag(onMove, sticker.id, sticker.x, sticker.y, scale);
   return (
-    <div
-      onMouseDown={onMouseDown}
-      style={{
-        position: "absolute",
-        left: sticker.x,
-        top: sticker.y,
-        fontSize: sticker.size,
-        transform: `rotate(${sticker.rotation}deg)`,
-        cursor: dragging ? "grabbing" : "grab",
-        zIndex: 10,
-        userSelect: "none",
-        lineHeight: 1,
-      }}
-    >
+    <div onMouseDown={onMouseDown} style={{
+      position: "absolute", left: sticker.x, top: sticker.y, fontSize: sticker.size,
+      transform: `rotate(${sticker.rotation}deg)`, cursor: dragging ? "grabbing" : "grab",
+      zIndex: 10, userSelect: "none", lineHeight: 1,
+    }}>
       {sticker.emoji}
     </div>
   );
 };
 
-const CoverSlide = ({
-  slide, onUpdate, onFieldFocus,
-}: {
-  slide: CarouselSlide;
-  onUpdate: SlideRendererProps["onUpdate"];
-  onFieldFocus?: SlideRendererProps["onFieldFocus"];
+const DraggableTextBox = ({ tb, onMove, onUpdateText, scale }: {
+  tb: TextBoxItem; onMove?: (id: string, x: number, y: number) => void;
+  onUpdateText?: (id: string, text: string) => void; scale: number;
+}) => {
+  const { dragging, onMouseDown } = useDrag(onMove, tb.id, tb.x, tb.y, scale);
+  if (tb.visible === false) return null;
+  return (
+    <div onMouseDown={onMouseDown} style={{
+      position: "absolute", left: tb.x, top: tb.y, width: tb.width || 400,
+      cursor: dragging ? "grabbing" : "grab", zIndex: tb.zIndex || 5, userSelect: "none",
+    }}>
+      <div
+        contentEditable suppressContentEditableWarning
+        onBlur={(e) => onUpdateText?.(tb.id, e.currentTarget.textContent || "")}
+        className="outline-none focus:ring-2 focus:ring-red-500/50 focus:rounded px-2 py-1"
+        style={getTextStyle(tb.style, { fontSize: 24, color: "#ffffff", fontWeight: "normal" })}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {tb.text}
+      </div>
+    </div>
+  );
+};
+
+const DraggableShape = ({ shape, onMove, scale }: {
+  shape: ShapeItem; onMove?: (id: string, x: number, y: number) => void; scale: number;
+}) => {
+  const { dragging, onMouseDown } = useDrag(onMove, shape.id, shape.x, shape.y, scale);
+  if (shape.visible === false) return null;
+
+  let shapeStyle: React.CSSProperties = {
+    width: shape.width, height: shape.height, backgroundColor: shape.color,
+    transform: `rotate(${shape.rotation}deg)`,
+  };
+  if (shape.type === "circle") shapeStyle.borderRadius = "50%";
+  if (shape.type === "line") { shapeStyle.height = 4; shapeStyle.borderRadius = 2; }
+
+  return (
+    <div onMouseDown={onMouseDown} style={{
+      position: "absolute", left: shape.x, top: shape.y,
+      cursor: dragging ? "grabbing" : "grab", zIndex: shape.zIndex || 4, userSelect: "none",
+    }}>
+      <div style={shapeStyle} />
+    </div>
+  );
+};
+
+const GridGuides = () => (
+  <div style={{ position: "absolute", inset: 0, zIndex: 50, pointerEvents: "none" }}>
+    <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(0,150,255,0.3)" }} />
+    <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(0,150,255,0.3)" }} />
+    <div style={{ position: "absolute", left: "33.33%", top: 0, bottom: 0, width: 1, background: "rgba(0,150,255,0.15)" }} />
+    <div style={{ position: "absolute", left: "66.66%", top: 0, bottom: 0, width: 1, background: "rgba(0,150,255,0.15)" }} />
+    <div style={{ position: "absolute", top: "33.33%", left: 0, right: 0, height: 1, background: "rgba(0,150,255,0.15)" }} />
+    <div style={{ position: "absolute", top: "66.66%", left: 0, right: 0, height: 1, background: "rgba(0,150,255,0.15)" }} />
+  </div>
+);
+
+/* Slide type layouts */
+const CoverSlide = ({ slide, onUpdate, onFieldFocus }: {
+  slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"]; onFieldFocus?: SlideRendererProps["onFieldFocus"];
 }) => (
   <div className="flex flex-col items-center justify-center h-full px-16 text-center" style={{ position: "relative", zIndex: 2 }}>
     <div className="w-20 h-1 mb-8" style={{ backgroundColor: "#e94560" }} />
-    <EditableText
-      value={slide.title}
-      onChange={(v) => onUpdate("title", v)}
-      tag="h1"
+    <EditableText value={slide.title} onChange={(v) => onUpdate("title", v)} tag="h1"
       className="leading-tight mb-8 w-full"
       style={getTextStyle(slide.titleStyle, { fontSize: 48, textAlign: "center", color: "#ffffff" })}
-      onFocus={() => onFieldFocus?.("title")}
-    />
+      onFocus={() => onFieldFocus?.("title")} />
     <div className="w-20 h-1 mt-4 mb-8" style={{ backgroundColor: "#e94560" }} />
     <p className="text-xl opacity-70 mt-4" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>Deslize →</p>
     <Footer />
   </div>
 );
 
-const ContentSlide = ({
-  slide, onUpdate, onFieldFocus,
-}: {
-  slide: CarouselSlide;
-  onUpdate: SlideRendererProps["onUpdate"];
-  onFieldFocus?: SlideRendererProps["onFieldFocus"];
+const ContentSlide = ({ slide, onUpdate, onFieldFocus }: {
+  slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"]; onFieldFocus?: SlideRendererProps["onFieldFocus"];
 }) => (
   <div className="flex flex-col h-full px-14 py-16" style={{ position: "relative", zIndex: 2 }}>
     {slide.number && (
-      <div
-        className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold mb-6"
-        style={{ backgroundColor: "#e94560", color: "#ffffff" }}
-      >
-        {slide.number}
-      </div>
+      <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold mb-6"
+        style={{ backgroundColor: "#e94560", color: "#ffffff" }}>{slide.number}</div>
     )}
-    <EditableText
-      value={slide.title}
-      onChange={(v) => onUpdate("title", v)}
-      tag="h2"
-      className="mb-6 w-full"
-      style={getTextStyle(slide.titleStyle, { fontSize: 30 })}
-      onFocus={() => onFieldFocus?.("title")}
-    />
+    <EditableText value={slide.title} onChange={(v) => onUpdate("title", v)} tag="h2"
+      className="mb-6 w-full" style={getTextStyle(slide.titleStyle, { fontSize: 30 })}
+      onFocus={() => onFieldFocus?.("title")} />
     {slide.body && (
-      <EditableText
-        value={slide.body}
-        onChange={(v) => onUpdate("body", v)}
-        tag="p"
+      <EditableText value={slide.body} onChange={(v) => onUpdate("body", v)} tag="p"
         className="leading-relaxed opacity-90 flex-1 w-full"
         style={getTextStyle(slide.bodyStyle, { fontSize: 20, fontWeight: "normal", color: "#ffffff" })}
-        onFocus={() => onFieldFocus?.("body")}
-      />
+        onFocus={() => onFieldFocus?.("body")} />
     )}
     {slide.emoji && (
       <div className="text-7xl mt-auto pt-6 text-center" style={{ position: "relative", zIndex: 2 }}>{slide.emoji}</div>
@@ -217,30 +227,24 @@ const ContentSlide = ({
   </div>
 );
 
-const CTASlide = ({
-  slide, onUpdate, onFieldFocus,
-}: {
-  slide: CarouselSlide;
-  onUpdate: SlideRendererProps["onUpdate"];
-  onFieldFocus?: SlideRendererProps["onFieldFocus"];
+const CTASlide = ({ slide, onUpdate, onFieldFocus }: {
+  slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"]; onFieldFocus?: SlideRendererProps["onFieldFocus"];
 }) => (
   <div className="flex flex-col items-center justify-center h-full px-16 text-center" style={{ position: "relative", zIndex: 2 }}>
     <div className="text-6xl mb-8">🎢</div>
-    <EditableText
-      value={slide.title}
-      onChange={(v) => onUpdate("title", v)}
-      tag="h2"
-      className="mb-6 w-full"
-      style={getTextStyle(slide.titleStyle, { fontSize: 40, textAlign: "center" })}
-      onFocus={() => onFieldFocus?.("title")}
-    />
+    <EditableText value={slide.title} onChange={(v) => onUpdate("title", v)} tag="h2"
+      className="mb-6 w-full" style={getTextStyle(slide.titleStyle, { fontSize: 40, textAlign: "center" })}
+      onFocus={() => onFieldFocus?.("title")} />
     <p className="text-2xl opacity-80 mb-4" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>@orlandofastpass</p>
     <p className="text-lg opacity-60" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>orlandofastpass.com.br</p>
     <Footer />
   </div>
 );
 
-export function SlideRenderer({ slide, index, total, onUpdate, onFieldFocus, onMoveSticker, exportMode }: SlideRendererProps) {
+export function SlideRenderer({
+  slide, index, total, onUpdate, onFieldFocus, onMoveSticker,
+  onMoveTextBox, onMoveShape, onUpdateTextBox, exportMode, scale = 0.45, showGrid,
+}: SlideRendererProps) {
   const isLoadingImage = slide.backgroundImage === "loading";
   const gFrom = slide.gradientFrom || "#1a1a2e";
   const gTo = slide.gradientTo || "#16213e";
@@ -250,12 +254,11 @@ export function SlideRenderer({ slide, index, total, onUpdate, onFieldFocus, onM
     <div
       className="slide-root relative overflow-hidden"
       style={{
-        width: 1080,
-        height: 1350,
+        width: 1080, height: 1350,
         background: `linear-gradient(180deg, ${gFrom} 0%, ${gTo} 100%)`,
         color: "#ffffff",
         fontFamily: "'Inter', system-ui, sans-serif",
-        transform: exportMode ? undefined : `scale(${0.45})`,
+        transform: exportMode ? undefined : `scale(${scale})`,
         transformOrigin: "top left",
       }}
     >
@@ -264,22 +267,26 @@ export function SlideRenderer({ slide, index, total, onUpdate, onFieldFocus, onM
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
       <BackgroundImage src={isLoadingImage ? undefined : slide.backgroundImage} />
-      {/* Overlay */}
       {slide.backgroundImage && slide.backgroundImage !== "loading" && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: `linear-gradient(180deg, ${gFrom} 0%, ${gTo} 100%)`,
-            opacity: overlayOpacity,
-            zIndex: 1,
-          }}
-        />
+        <div style={{
+          position: "absolute", inset: 0,
+          background: `linear-gradient(180deg, ${gFrom} 0%, ${gTo} 100%)`,
+          opacity: overlayOpacity, zIndex: 1,
+        }} />
       )}
       {isLoadingImage && <LoadingOverlay />}
+      {showGrid && <GridGuides />}
+      {/* Shapes */}
+      {slide.shapes?.map((shape) => (
+        <DraggableShape key={shape.id} shape={shape} onMove={onMoveShape} scale={scale} />
+      ))}
+      {/* Text boxes */}
+      {slide.textBoxes?.map((tb) => (
+        <DraggableTextBox key={tb.id} tb={tb} onMove={onMoveTextBox} onUpdateText={onUpdateTextBox} scale={scale} />
+      ))}
       {/* Stickers */}
       {slide.stickers?.map((sticker) => (
-        <DraggableSticker key={sticker.id} sticker={sticker} onMove={onMoveSticker} />
+        <DraggableSticker key={sticker.id} sticker={sticker} onMove={onMoveSticker} scale={scale} />
       ))}
       {slide.type === "cover" && <CoverSlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
       {slide.type === "content" && <ContentSlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
