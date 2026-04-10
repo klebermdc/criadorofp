@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { CarouselData, CarouselSlide } from "@/types/carousel";
+import { CarouselData, CarouselSlide, TextStyle } from "@/types/carousel";
 import { GeneratorSidebar } from "@/components/GeneratorSidebar";
 import { CarouselPreview } from "@/components/CarouselPreview";
 
@@ -10,6 +10,17 @@ const Index = () => {
     if (!carousel) return;
     const updated = [...carousel.slides];
     updated[index] = { ...updated[index], [field]: value };
+    setCarousel({ ...carousel, slides: updated });
+  };
+
+  const handleUpdateSlideStyle = (index: number, field: "title" | "body", style: Partial<TextStyle>) => {
+    if (!carousel) return;
+    const updated = [...carousel.slides];
+    const styleKey = field === "title" ? "titleStyle" : "bodyStyle";
+    updated[index] = {
+      ...updated[index],
+      [styleKey]: { ...updated[index][styleKey], ...style },
+    };
     setCarousel({ ...carousel, slides: updated });
   };
 
@@ -31,6 +42,7 @@ const Index = () => {
       <CarouselPreview
         slides={carousel?.slides || []}
         onUpdateSlide={handleUpdateSlide}
+        onUpdateSlideStyle={handleUpdateSlideStyle}
       />
     </div>
   );
