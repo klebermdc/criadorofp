@@ -101,7 +101,7 @@ export function CarouselPreview({
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
         {currentSlide && (
-          <div className="border-b border-zinc-800 p-2">
+          <div className="border-b border-zinc-800 p-2 overflow-x-auto">
             <SlideEditor
               activeField={activeField}
               titleStyle={currentSlide.titleStyle || {}}
