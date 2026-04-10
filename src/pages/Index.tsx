@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { CarouselData, CarouselSlide } from "@/types/carousel";
 import { GeneratorSidebar } from "@/components/GeneratorSidebar";
 import { CarouselPreview } from "@/components/CarouselPreview";
@@ -13,11 +13,20 @@ const Index = () => {
     setCarousel({ ...carousel, slides: updated });
   };
 
+  const handleUpdateSlides = useCallback((updater: (prev: CarouselData) => CarouselData) => {
+    setCarousel((prev) => {
+      if (!prev) return prev;
+      return updater(prev);
+    });
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden">
       <GeneratorSidebar
         onGenerated={setCarousel}
         onLoadCarousel={setCarousel}
+        onUpdateSlides={handleUpdateSlides}
+        currentCarousel={carousel}
       />
       <CarouselPreview
         slides={carousel?.slides || []}
