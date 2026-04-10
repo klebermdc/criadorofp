@@ -50,7 +50,7 @@ export function LayersPanel({
   const elements = getElements(slide);
 
   return (
-    <div className="w-52 bg-zinc-900 border-l border-zinc-800 flex flex-col h-full">
+    <div className="hidden md:flex w-52 bg-zinc-900 border-l border-zinc-800 flex-col h-full">
       <div className="px-3 py-2 border-b border-zinc-800">
         <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Camadas</span>
       </div>

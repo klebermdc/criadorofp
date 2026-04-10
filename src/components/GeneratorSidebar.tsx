@@ -142,7 +142,7 @@ export function GeneratorSidebar({ onGenerated, onLoadCarousel, onUpdateSlides, 
   };
 
   return (
-    <div className="w-80 border-r border-border flex flex-col h-full bg-card/30">
+    <div className="w-full md:w-80 border-r border-border flex flex-col h-full bg-card/30">
       {/* Logo */}
       <div className="p-6 border-b border-border">
         <h1 className="text-xl font-bold">
