@@ -2,9 +2,14 @@ import { useState, useCallback } from "react";
 import { CarouselData, TextStyle, SlideTemplate, TextBoxItem, ShapeItem, ImageItem } from "@/types/carousel";
 import { GeneratorSidebar } from "@/components/GeneratorSidebar";
 import { CarouselPreview } from "@/components/CarouselPreview";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { PanelLeft, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [carousel, setCarousel] = useState<CarouselData | null>(null);
+  const isMobile = useIsMobile();
+  const [mobileTab, setMobileTab] = useState<"generator" | "preview">("generator");
 
   const handleUpdateSlide = (index: number, field: string, value: any) => {
     if (!carousel) return;
@@ -190,32 +195,60 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
-      <GeneratorSidebar
-        onGenerated={setCarousel}
-        onLoadCarousel={setCarousel}
-        onUpdateSlides={handleUpdateSlides}
-        currentCarousel={carousel}
-      />
-      <CarouselPreview
-        slides={carousel?.slides || []}
-        onUpdateSlide={handleUpdateSlide}
-        onUpdateSlideStyle={handleUpdateSlideStyle}
-        onAddSticker={handleAddSticker}
-        onRemoveSticker={handleRemoveSticker}
-        onMoveSticker={handleMoveSticker}
-        onAddTextBox={handleAddTextBox}
-        onMoveTextBox={handleMoveTextBox}
-        onUpdateTextBox={handleUpdateTextBox}
-        onAddShape={handleAddShape}
-        onMoveShape={handleMoveShape}
-        onAddImage={handleAddImage}
-        onMoveImage={handleMoveImage}
-        onResizeImage={handleResizeImage}
-        onToggleElementVisibility={handleToggleElementVisibility}
-        onDeleteElement={handleDeleteElement}
-        onApplyTemplate={handleApplyTemplate}
-      />
+    <div className="flex flex-col h-screen overflow-hidden bg-zinc-950">
+      {/* Mobile tab bar */}
+      {isMobile && (
+        <div className="flex border-b border-zinc-800 bg-zinc-900">
+          <Button
+            variant="ghost"
+            className={`flex-1 rounded-none gap-2 ${mobileTab === "generator" ? "bg-zinc-800 text-white" : "text-zinc-400"}`}
+            onClick={() => setMobileTab("generator")}
+          >
+            <PanelLeft className="h-4 w-4" />
+            Gerador
+          </Button>
+          <Button
+            variant="ghost"
+            className={`flex-1 rounded-none gap-2 ${mobileTab === "preview" ? "bg-zinc-800 text-white" : "text-zinc-400"}`}
+            onClick={() => setMobileTab("preview")}
+          >
+            <Eye className="h-4 w-4" />
+            Preview
+          </Button>
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden">
+        <div className={`${isMobile ? (mobileTab === "generator" ? "flex w-full" : "hidden") : "flex"}`}>
+          <GeneratorSidebar
+            onGenerated={(data) => { setCarousel(data); if (isMobile) setMobileTab("preview"); }}
+            onLoadCarousel={(data) => { setCarousel(data); if (isMobile) setMobileTab("preview"); }}
+            onUpdateSlides={handleUpdateSlides}
+            currentCarousel={carousel}
+          />
+        </div>
+        <div className={`${isMobile ? (mobileTab === "preview" ? "flex flex-1" : "hidden") : "flex flex-1"}`}>
+          <CarouselPreview
+            slides={carousel?.slides || []}
+            onUpdateSlide={handleUpdateSlide}
+            onUpdateSlideStyle={handleUpdateSlideStyle}
+            onAddSticker={handleAddSticker}
+            onRemoveSticker={handleRemoveSticker}
+            onMoveSticker={handleMoveSticker}
+            onAddTextBox={handleAddTextBox}
+            onMoveTextBox={handleMoveTextBox}
+            onUpdateTextBox={handleUpdateTextBox}
+            onAddShape={handleAddShape}
+            onMoveShape={handleMoveShape}
+            onAddImage={handleAddImage}
+            onMoveImage={handleMoveImage}
+            onResizeImage={handleResizeImage}
+            onToggleElementVisibility={handleToggleElementVisibility}
+            onDeleteElement={handleDeleteElement}
+            onApplyTemplate={handleApplyTemplate}
+          />
+        </div>
+      </div>
     </div>
   );
 };
