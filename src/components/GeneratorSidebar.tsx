@@ -4,18 +4,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { STYLES, CarouselStyle, CarouselData } from "@/types/carousel";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Sparkles, History, Trash2 } from "lucide-react";
+import { Loader2, Sparkles, History, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface GeneratorSidebarProps {
   onGenerated: (data: CarouselData) => void;
   onLoadCarousel: (data: CarouselData) => void;
+  onUpdateSlides: (updater: (prev: CarouselData) => CarouselData) => void;
+  currentCarousel: CarouselData | null;
 }
 
-export function GeneratorSidebar({ onGenerated, onLoadCarousel }: GeneratorSidebarProps) {
+export function GeneratorSidebar({ onGenerated, onLoadCarousel, onUpdateSlides, currentCarousel }: GeneratorSidebarProps) {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState<CarouselStyle>("Dicas");
   const [loading, setLoading] = useState(false);
+  const [generatingImages, setGeneratingImages] = useState(false);
   const [history, setHistory] = useState<CarouselData[]>([]);
 
   const loadHistory = async () => {
@@ -30,6 +33,69 @@ export function GeneratorSidebar({ onGenerated, onLoadCarousel }: GeneratorSideb
   useEffect(() => {
     loadHistory();
   }, []);
+
+  const generateImages = async (carousel: CarouselData) => {
+    setGeneratingImages(true);
+    const topicText = carousel.topic;
+
+    // Mark all slides as loading
+    onUpdateSlides((prev) => ({
+      ...prev,
+      slides: prev.slides.map((s) => ({ ...s, backgroundImage: "loading" })),
+    }));
+
+    // Generate images for each unique type, then apply
+    const types = ["cover", "content", "cta"] as const;
+    const imageMap: Record<string, string> = {};
+
+    try {
+      // Generate all 3 types in parallel
+      const results = await Promise.allSettled(
+        types.map(async (slideType) => {
+          const { data, error } = await supabase.functions.invoke("generate-slide-image", {
+            body: { topic: topicText, slideType },
+          });
+          if (error) throw error;
+          return { slideType, imageUrl: data.imageUrl };
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value.imageUrl) {
+          imageMap[result.value.slideType] = result.value.imageUrl;
+        }
+      }
+
+      // Apply images to slides
+      onUpdateSlides((prev) => ({
+        ...prev,
+        slides: prev.slides.map((s) => ({
+          ...s,
+          backgroundImage: imageMap[s.type] || undefined,
+        })),
+      }));
+
+      const count = Object.keys(imageMap).length;
+      if (count > 0) {
+        toast.success(`${count} imagens de fundo geradas!`);
+      } else {
+        toast.error("Não foi possível gerar imagens. Tente novamente.");
+        onUpdateSlides((prev) => ({
+          ...prev,
+          slides: prev.slides.map((s) => ({ ...s, backgroundImage: undefined })),
+        }));
+      }
+    } catch (e) {
+      console.error("Image generation error:", e);
+      toast.error("Erro ao gerar imagens de fundo");
+      onUpdateSlides((prev) => ({
+        ...prev,
+        slides: prev.slides.map((s) => ({ ...s, backgroundImage: undefined })),
+      }));
+    } finally {
+      setGeneratingImages(false);
+    }
+  };
 
   const generate = async () => {
     if (!topic.trim()) {
@@ -58,7 +124,10 @@ export function GeneratorSidebar({ onGenerated, onLoadCarousel }: GeneratorSideb
 
       onGenerated(carousel);
       loadHistory();
-      toast.success("Carrossel gerado com sucesso!");
+      toast.success("Carrossel gerado! Gerando imagens de fundo...");
+
+      // Auto-generate background images
+      setTimeout(() => generateImages(carousel), 100);
     } catch (e: any) {
       console.error(e);
       toast.error("Erro ao gerar carrossel: " + (e.message || "Tente novamente"));
@@ -109,10 +178,21 @@ export function GeneratorSidebar({ onGenerated, onLoadCarousel }: GeneratorSideb
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={generate} disabled={loading} className="w-full gap-2">
+        <Button onClick={generate} disabled={loading || generatingImages} className="w-full gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {loading ? "Gerando..." : "Gerar Carrossel"}
+          {loading ? "Gerando texto..." : generatingImages ? "Gerando imagens..." : "Gerar Carrossel"}
         </Button>
+        {currentCarousel && !generatingImages && (
+          <Button
+            variant="outline"
+            onClick={() => generateImages(currentCarousel)}
+            disabled={generatingImages}
+            className="w-full gap-2"
+          >
+            <ImageIcon className="h-4 w-4" />
+            Regenerar imagens de fundo
+          </Button>
+        )}
       </div>
 
       {/* History */}

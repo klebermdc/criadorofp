@@ -4,6 +4,7 @@ export interface CarouselSlide {
   body?: string;
   emoji?: string;
   number?: number;
+  backgroundImage?: string;
 }
 
 export interface CarouselData {
