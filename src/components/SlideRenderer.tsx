@@ -252,58 +252,85 @@ const GridGuides = () => (
   </div>
 );
 
-/* Slide type layouts */
-const CoverSlide = ({ slide, onUpdate, onFieldFocus }: {
-  slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"]; onFieldFocus?: SlideRendererProps["onFieldFocus"];
-}) => (
-  <div className="flex flex-col items-center justify-center h-full px-16 text-center" style={{ position: "relative", zIndex: 2 }}>
-    <div className="w-20 h-1 mb-8" style={{ backgroundColor: "#e94560" }} />
-    <EditableText value={slide.title} onChange={(v) => onUpdate("title", v)} tag="h1"
-      className="leading-tight mb-8 w-full"
-      style={getTextStyle(slide.titleStyle, { fontSize: 48, textAlign: "center", color: "#ffffff" })}
-      onFocus={() => onFieldFocus?.("title")} />
-    <div className="w-20 h-1 mt-4 mb-8" style={{ backgroundColor: "#e94560" }} />
-    <p className="text-xl opacity-70 mt-4" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>Deslize →</p>
-    <Footer />
-  </div>
-);
+/* Draggable title/body text */
+const DraggableTitle = ({ slide, onUpdate, onFieldFocus, scale, defaultPos }: {
+  slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"];
+  onFieldFocus?: SlideRendererProps["onFieldFocus"]; scale: number;
+  defaultPos: { x: number; y: number };
+}) => {
+  const pos = slide.titlePosition || defaultPos;
+  const { dragging, onMouseDown } = useDrag(
+    (_id, x, y) => onUpdate("titlePosition", { x, y }),
+    "title", pos.x, pos.y, scale
+  );
+  return (
+    <div onMouseDown={onMouseDown} style={{
+      position: "absolute", left: pos.x, top: pos.y, width: 900,
+      cursor: dragging ? "grabbing" : "grab", zIndex: 3, userSelect: "none",
+    }}>
+      <EditableText value={slide.title} onChange={(v) => onUpdate("title", v)} tag="h1"
+        className="leading-tight w-full"
+        style={getTextStyle(slide.titleStyle, { fontSize: 48, textAlign: "center", color: "#ffffff" })}
+        onFocus={() => onFieldFocus?.("title")} />
+    </div>
+  );
+};
 
-const ContentSlide = ({ slide, onUpdate, onFieldFocus }: {
-  slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"]; onFieldFocus?: SlideRendererProps["onFieldFocus"];
-}) => (
-  <div className="flex flex-col h-full px-14 py-16" style={{ position: "relative", zIndex: 2 }}>
-    {slide.number && (
-      <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold mb-6"
-        style={{ backgroundColor: "#e94560", color: "#ffffff" }}>{slide.number}</div>
-    )}
-    <EditableText value={slide.title} onChange={(v) => onUpdate("title", v)} tag="h2"
-      className="mb-6 w-full" style={getTextStyle(slide.titleStyle, { fontSize: 30 })}
-      onFocus={() => onFieldFocus?.("title")} />
-    {slide.body && (
+const DraggableBody = ({ slide, onUpdate, onFieldFocus, scale, defaultPos }: {
+  slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"];
+  onFieldFocus?: SlideRendererProps["onFieldFocus"]; scale: number;
+  defaultPos: { x: number; y: number };
+}) => {
+  if (!slide.body) return null;
+  const pos = slide.bodyPosition || defaultPos;
+  const { dragging, onMouseDown } = useDrag(
+    (_id, x, y) => onUpdate("bodyPosition", { x, y }),
+    "body", pos.x, pos.y, scale
+  );
+  return (
+    <div onMouseDown={onMouseDown} style={{
+      position: "absolute", left: pos.x, top: pos.y, width: 900,
+      cursor: dragging ? "grabbing" : "grab", zIndex: 3, userSelect: "none",
+    }}>
       <EditableText value={slide.body} onChange={(v) => onUpdate("body", v)} tag="p"
-        className="leading-relaxed opacity-90 flex-1 w-full"
+        className="leading-relaxed w-full"
         style={getTextStyle(slide.bodyStyle, { fontSize: 20, fontWeight: "normal", color: "#ffffff" })}
         onFocus={() => onFieldFocus?.("body")} />
-    )}
-    {slide.emoji && (
-      <div className="text-7xl mt-auto pt-6 text-center" style={{ position: "relative", zIndex: 2 }}>{slide.emoji}</div>
-    )}
+    </div>
+  );
+};
+
+/* Slide decorations (non-text) */
+const CoverDecorations = ({ slide }: { slide: CarouselSlide }) => (
+  <>
+    <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: (slide.titlePosition?.y || 400) - 50, width: 80, height: 4, backgroundColor: "#e94560", zIndex: 2 }} />
+    <div style={{ position: "absolute", bottom: 200, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
+      <p className="text-xl opacity-70" style={{ color: "#ffffff" }}>Deslize →</p>
+    </div>
     <Footer />
-  </div>
+  </>
 );
 
-const CTASlide = ({ slide, onUpdate, onFieldFocus }: {
-  slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"]; onFieldFocus?: SlideRendererProps["onFieldFocus"];
-}) => (
-  <div className="flex flex-col items-center justify-center h-full px-16 text-center" style={{ position: "relative", zIndex: 2 }}>
-    <div className="text-6xl mb-8">🎢</div>
-    <EditableText value={slide.title} onChange={(v) => onUpdate("title", v)} tag="h2"
-      className="mb-6 w-full" style={getTextStyle(slide.titleStyle, { fontSize: 40, textAlign: "center" })}
-      onFocus={() => onFieldFocus?.("title")} />
-    <p className="text-2xl opacity-80 mb-4" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>@orlandofastpass</p>
-    <p className="text-lg opacity-60" style={{ position: "relative", zIndex: 2, color: "#ffffff" }}>orlandofastpass.com.br</p>
+const ContentDecorations = ({ slide }: { slide: CarouselSlide }) => (
+  <>
+    {slide.number && (
+      <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold"
+        style={{ position: "absolute", left: 56, top: 64, backgroundColor: "#e94560", color: "#ffffff", zIndex: 2 }}>{slide.number}</div>
+    )}
+    {slide.emoji && (
+      <div className="text-7xl text-center" style={{ position: "absolute", bottom: 120, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>{slide.emoji}</div>
+    )}
     <Footer />
-  </div>
+  </>
+);
+
+const CTADecorations = () => (
+  <>
+    <div className="text-6xl" style={{ position: "absolute", top: 300, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>🎢</div>
+    <p className="text-2xl opacity-80" style={{ position: "absolute", bottom: 280, left: "50%", transform: "translateX(-50%)", zIndex: 2, color: "#ffffff" }}>@orlandofastpass</p>
+    <p className="text-lg opacity-60" style={{ position: "absolute", bottom: 240, left: "50%", transform: "translateX(-50%)", zIndex: 2, color: "#ffffff" }}>orlandofastpass.com.br</p>
+    <Footer />
+  </>
 );
 
 export function SlideRenderer({
