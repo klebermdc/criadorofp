@@ -76,6 +76,8 @@ export interface CarouselSlide {
   backgroundImage?: string;
   titleStyle?: TextStyle;
   bodyStyle?: TextStyle;
+  titlePosition?: { x: number; y: number };
+  bodyPosition?: { x: number; y: number };
   stickers?: StickerItem[];
   overlayOpacity?: number;
   gradientFrom?: string;
