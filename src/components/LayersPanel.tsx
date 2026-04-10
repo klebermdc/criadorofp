@@ -1,5 +1,5 @@
 import { CarouselSlide, SlideElement } from "@/types/carousel";
-import { Eye, EyeOff, Trash2, Type, Sticker, Square, GripVertical } from "lucide-react";
+import { Eye, EyeOff, Trash2, Type, Sticker, Square, GripVertical, Image } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface LayersPanelProps {
@@ -19,6 +19,9 @@ function getElements(slide: CarouselSlide): SlideElement[] {
   slide.textBoxes?.forEach((tb) => {
     elements.push({ kind: "textbox", id: tb.id, label: tb.text.slice(0, 20) || "Texto", data: tb });
   });
+  slide.images?.forEach((img) => {
+    elements.push({ kind: "image", id: img.id, label: "Imagem", data: img });
+  });
   slide.stickers?.forEach((s) => {
     elements.push({ kind: "sticker", id: s.id, label: s.emoji, data: s });
   });
@@ -34,6 +37,7 @@ const kindIcons = {
   textbox: Type,
   sticker: Sticker,
   shape: Square,
+  image: Image,
 };
 
 export function LayersPanel({

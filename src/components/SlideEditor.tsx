@@ -5,7 +5,7 @@ import {
 import {
   Bold, AlignLeft, AlignCenter, AlignRight, Plus, Minus,
   Palette, Sticker, Layers, Type, Square, Circle, Minus as LineIcon,
-  SunDim, Sparkles, LetterText, MoveVertical,
+  SunDim, Sparkles, LetterText, MoveVertical, Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -33,6 +33,7 @@ interface SlideEditorProps {
   onAddTextBox: () => void;
   onAddShape: (type: "circle" | "square" | "line") => void;
   onApplyTemplate: (template: SlideTemplate) => void;
+  onOpenImageLibrary: () => void;
 }
 
 const TEXT_COLORS = [
@@ -46,7 +47,7 @@ export function SlideEditor({
   activeField, titleStyle, bodyStyle, overlayOpacity,
   gradientFrom, gradientTo, stickers,
   onUpdateStyle, onUpdateOverlay, onUpdateGradient,
-  onAddSticker, onRemoveSticker, onAddTextBox, onAddShape, onApplyTemplate,
+  onAddSticker, onRemoveSticker, onAddTextBox, onAddShape, onApplyTemplate, onOpenImageLibrary,
 }: SlideEditorProps) {
   const [section, setSection] = useState<Section>("text");
 
@@ -290,9 +291,12 @@ export function SlideEditor({
             <div className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase tracking-wider">
               Adicionar
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 flex-wrap">
               <Button variant="outline" size="sm" className="h-8 text-xs gap-1 bg-zinc-800 border-zinc-700 hover:bg-zinc-700 text-zinc-200" onClick={onAddTextBox}>
                 <Type className="h-3 w-3" /> Texto
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1 bg-zinc-800 border-zinc-700 hover:bg-zinc-700 text-zinc-200" onClick={onOpenImageLibrary}>
+                <Image className="h-3 w-3" /> Imagem
               </Button>
               <Button variant="outline" size="sm" className="h-8 text-xs gap-1 bg-zinc-800 border-zinc-700 hover:bg-zinc-700 text-zinc-200" onClick={() => onAddShape("circle")}>
                 <Circle className="h-3 w-3" /> Círculo
