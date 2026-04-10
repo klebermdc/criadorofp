@@ -1,3 +1,9 @@
+export interface TextStyle {
+  fontSize?: number;
+  fontWeight?: "normal" | "bold";
+  textAlign?: "left" | "center" | "right";
+}
+
 export interface CarouselSlide {
   type: "cover" | "content" | "cta";
   title: string;
@@ -5,6 +11,8 @@ export interface CarouselSlide {
   emoji?: string;
   number?: number;
   backgroundImage?: string;
+  titleStyle?: TextStyle;
+  bodyStyle?: TextStyle;
 }
 
 export interface CarouselData {
