@@ -405,9 +405,15 @@ export function SlideRenderer({
       {slide.stickers?.map((sticker) => (
         <DraggableSticker key={sticker.id} sticker={sticker} onMove={onMoveSticker} scale={scale} />
       ))}
-      {slide.type === "cover" && <CoverSlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
-      {slide.type === "content" && <ContentSlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
-      {slide.type === "cta" && <CTASlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
+      {/* Draggable title & body */}
+      <DraggableTitle slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} scale={scale}
+        defaultPos={slide.type === "cover" ? { x: 90, y: 450 } : slide.type === "cta" ? { x: 90, y: 500 } : { x: 56, y: 150 }} />
+      <DraggableBody slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} scale={scale}
+        defaultPos={slide.type === "content" ? { x: 56, y: 300 } : { x: 90, y: 600 }} />
+      {/* Decorations */}
+      {slide.type === "cover" && <CoverDecorations slide={slide} />}
+      {slide.type === "content" && <ContentDecorations slide={slide} />}
+      {slide.type === "cta" && <CTADecorations />}
     </div>
   );
 }
