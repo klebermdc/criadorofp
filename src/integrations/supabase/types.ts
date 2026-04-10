@@ -14,7 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      carousels: {
+        Row: {
+          created_at: string | null
+          id: string
+          slides: Json
+          style: string
+          topic: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          slides?: Json
+          style: string
+          topic: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          slides?: Json
+          style?: string
+          topic?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
