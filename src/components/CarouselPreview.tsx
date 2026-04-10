@@ -1,5 +1,6 @@
-import { CarouselSlide } from "@/types/carousel";
+import { CarouselSlide, TextStyle } from "@/types/carousel";
 import { SlideRenderer } from "./SlideRenderer";
+import { SlideEditor } from "./SlideEditor";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, useState } from "react";
@@ -9,15 +10,19 @@ import JSZip from "jszip";
 interface CarouselPreviewProps {
   slides: CarouselSlide[];
   onUpdateSlide: (index: number, field: string, value: string) => void;
+  onUpdateSlideStyle: (index: number, field: "title" | "body", style: Partial<TextStyle>) => void;
 }
 
-export function CarouselPreview({ slides, onUpdateSlide }: CarouselPreviewProps) {
+export function CarouselPreview({ slides, onUpdateSlide, onUpdateSlideStyle }: CarouselPreviewProps) {
   const [current, setCurrent] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [activeField, setActiveField] = useState<"title" | "body" | null>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const prev = () => setCurrent((c) => Math.max(0, c - 1));
   const next = () => setCurrent((c) => Math.min(slides.length - 1, c + 1));
+
+  const currentSlide = slides[current];
 
   const exportSlides = async () => {
     setExporting(true);
@@ -55,7 +60,15 @@ export function CarouselPreview({ slides, onUpdateSlide }: CarouselPreviewProps)
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
+      {/* Editor toolbar */}
+      <SlideEditor
+        activeField={activeField}
+        titleStyle={currentSlide?.titleStyle || {}}
+        bodyStyle={currentSlide?.bodyStyle || {}}
+        onUpdateStyle={(field, style) => onUpdateSlideStyle(current, field, style)}
+      />
+
       {/* Slide preview */}
       <div className="relative overflow-hidden" style={{ width: 1080 * 0.45, height: 1350 * 0.45 }}>
         {slides.map((slide, i) => (
@@ -69,6 +82,7 @@ export function CarouselPreview({ slides, onUpdateSlide }: CarouselPreviewProps)
               index={i}
               total={slides.length}
               onUpdate={(field, value) => onUpdateSlide(i, field, value)}
+              onFieldFocus={(field) => setActiveField(field)}
             />
           </div>
         ))}

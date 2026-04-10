@@ -1,11 +1,13 @@
-import { CarouselSlide } from "@/types/carousel";
-import { useRef } from "react";
+import { CarouselSlide, TextStyle } from "@/types/carousel";
+import { useRef, useState } from "react";
 
 interface SlideRendererProps {
   slide: CarouselSlide;
   index: number;
   total: number;
   onUpdate: (field: string, value: string) => void;
+  onUpdateStyle?: (field: "title" | "body", style: Partial<TextStyle>) => void;
+  onFieldFocus?: (field: "title" | "body") => void;
   exportMode?: boolean;
 }
 
@@ -14,11 +16,15 @@ const EditableText = ({
   onChange,
   className,
   tag: Tag = "div",
+  style,
+  onFocus,
 }: {
   value: string;
   onChange: (v: string) => void;
   className?: string;
   tag?: "div" | "span" | "h1" | "h2" | "p";
+  style?: React.CSSProperties;
+  onFocus?: () => void;
 }) => {
   const ref = useRef<HTMLElement>(null);
 
@@ -28,8 +34,9 @@ const EditableText = ({
       contentEditable
       suppressContentEditableWarning
       onBlur={(e) => onChange(e.currentTarget.textContent || "")}
+      onFocus={onFocus}
       className={`outline-none focus:ring-2 focus:ring-ofp-red/50 focus:rounded px-1 cursor-text ${className}`}
-      style={{ position: "relative", zIndex: 2 }}
+      style={{ position: "relative", zIndex: 2, ...style }}
     >
       {value}
     </Tag>
@@ -60,7 +67,6 @@ const BackgroundImage = ({ src }: { src?: string }) => {
           zIndex: 0,
         }}
       />
-      {/* Dark overlay for text readability */}
       <div
         style={{
           position: "absolute",
@@ -98,14 +104,32 @@ const LoadingOverlay = () => (
   </div>
 );
 
-const CoverSlide = ({ slide, onUpdate }: { slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"] }) => (
+function getTextStyle(style?: TextStyle, defaults?: Partial<TextStyle>): React.CSSProperties {
+  return {
+    fontSize: style?.fontSize || defaults?.fontSize,
+    fontWeight: style?.fontWeight || defaults?.fontWeight || "bold",
+    textAlign: style?.textAlign || defaults?.textAlign,
+  };
+}
+
+const CoverSlide = ({
+  slide,
+  onUpdate,
+  onFieldFocus,
+}: {
+  slide: CarouselSlide;
+  onUpdate: SlideRendererProps["onUpdate"];
+  onFieldFocus?: SlideRendererProps["onFieldFocus"];
+}) => (
   <div className="flex flex-col items-center justify-center h-full px-16 text-center" style={{ position: "relative", zIndex: 2 }}>
     <div className="w-20 h-1 mb-8" style={{ backgroundColor: "#e94560" }} />
     <EditableText
       value={slide.title}
       onChange={(v) => onUpdate("title", v)}
       tag="h1"
-      className="text-5xl font-bold leading-tight mb-8"
+      className="leading-tight mb-8 w-full"
+      style={getTextStyle(slide.titleStyle, { fontSize: 48, textAlign: "center" })}
+      onFocus={() => onFieldFocus?.("title")}
     />
     <div className="w-20 h-1 mt-4 mb-8" style={{ backgroundColor: "#e94560" }} />
     <p className="text-xl opacity-70 mt-4" style={{ position: "relative", zIndex: 2 }}>Deslize →</p>
@@ -116,9 +140,11 @@ const CoverSlide = ({ slide, onUpdate }: { slide: CarouselSlide; onUpdate: Slide
 const ContentSlide = ({
   slide,
   onUpdate,
+  onFieldFocus,
 }: {
   slide: CarouselSlide;
   onUpdate: SlideRendererProps["onUpdate"];
+  onFieldFocus?: SlideRendererProps["onFieldFocus"];
 }) => (
   <div className="flex flex-col h-full px-14 py-16" style={{ position: "relative", zIndex: 2 }}>
     {slide.number && (
@@ -133,14 +159,18 @@ const ContentSlide = ({
       value={slide.title}
       onChange={(v) => onUpdate("title", v)}
       tag="h2"
-      className="text-3xl font-bold mb-6"
+      className="mb-6 w-full"
+      style={getTextStyle(slide.titleStyle, { fontSize: 30 })}
+      onFocus={() => onFieldFocus?.("title")}
     />
     {slide.body && (
       <EditableText
         value={slide.body}
         onChange={(v) => onUpdate("body", v)}
         tag="p"
-        className="text-xl leading-relaxed opacity-90 flex-1"
+        className="leading-relaxed opacity-90 flex-1 w-full"
+        style={getTextStyle(slide.bodyStyle, { fontSize: 20, fontWeight: "normal" })}
+        onFocus={() => onFieldFocus?.("body")}
       />
     )}
     {slide.emoji && (
@@ -150,14 +180,24 @@ const ContentSlide = ({
   </div>
 );
 
-const CTASlide = ({ slide, onUpdate }: { slide: CarouselSlide; onUpdate: SlideRendererProps["onUpdate"] }) => (
+const CTASlide = ({
+  slide,
+  onUpdate,
+  onFieldFocus,
+}: {
+  slide: CarouselSlide;
+  onUpdate: SlideRendererProps["onUpdate"];
+  onFieldFocus?: SlideRendererProps["onFieldFocus"];
+}) => (
   <div className="flex flex-col items-center justify-center h-full px-16 text-center" style={{ position: "relative", zIndex: 2 }}>
     <div className="text-6xl mb-8">🎢</div>
     <EditableText
       value={slide.title}
       onChange={(v) => onUpdate("title", v)}
       tag="h2"
-      className="text-4xl font-bold mb-6"
+      className="mb-6 w-full"
+      style={getTextStyle(slide.titleStyle, { fontSize: 40, textAlign: "center" })}
+      onFocus={() => onFieldFocus?.("title")}
     />
     <p className="text-2xl opacity-80 mb-4" style={{ position: "relative", zIndex: 2 }}>@orlandofastpass</p>
     <p className="text-lg opacity-60" style={{ position: "relative", zIndex: 2 }}>orlandofastpass.com.br</p>
@@ -165,7 +205,7 @@ const CTASlide = ({ slide, onUpdate }: { slide: CarouselSlide; onUpdate: SlideRe
   </div>
 );
 
-export function SlideRenderer({ slide, index, total, onUpdate, exportMode }: SlideRendererProps) {
+export function SlideRenderer({ slide, index, total, onUpdate, onUpdateStyle, onFieldFocus, exportMode }: SlideRendererProps) {
   const isLoadingImage = slide.backgroundImage === "loading";
 
   return (
@@ -187,9 +227,9 @@ export function SlideRenderer({ slide, index, total, onUpdate, exportMode }: Sli
       `}</style>
       <BackgroundImage src={isLoadingImage ? undefined : slide.backgroundImage} />
       {isLoadingImage && <LoadingOverlay />}
-      {slide.type === "cover" && <CoverSlide slide={slide} onUpdate={onUpdate} />}
-      {slide.type === "content" && <ContentSlide slide={slide} onUpdate={onUpdate} />}
-      {slide.type === "cta" && <CTASlide slide={slide} onUpdate={onUpdate} />}
+      {slide.type === "cover" && <CoverSlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
+      {slide.type === "content" && <ContentSlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
+      {slide.type === "cta" && <CTASlide slide={slide} onUpdate={onUpdate} onFieldFocus={onFieldFocus} />}
     </div>
   );
 }
