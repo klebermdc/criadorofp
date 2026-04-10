@@ -1,4 +1,4 @@
-import { CarouselSlide, TextStyle, StickerItem, TextBoxItem, ShapeItem } from "@/types/carousel";
+import { CarouselSlide, TextStyle, StickerItem, TextBoxItem, ShapeItem, ImageItem } from "@/types/carousel";
 import { useRef, useState, useCallback } from "react";
 
 interface SlideRendererProps {
@@ -10,7 +10,12 @@ interface SlideRendererProps {
   onMoveSticker?: (id: string, x: number, y: number) => void;
   onMoveTextBox?: (id: string, x: number, y: number) => void;
   onMoveShape?: (id: string, x: number, y: number) => void;
+  onMoveImage?: (id: string, x: number, y: number) => void;
+  onResizeImage?: (id: string, width: number, height: number) => void;
   onUpdateTextBox?: (id: string, text: string) => void;
+  onDeleteElement?: (id: string) => void;
+  selectedElementId?: string | null;
+  onSelectElement?: (id: string | null) => void;
   exportMode?: boolean;
   scale?: number;
   showGrid?: boolean;
@@ -176,6 +181,66 @@ const DraggableShape = ({ shape, onMove, scale }: {
   );
 };
 
+const DraggableImage = ({ img, onMove, onResize, scale, isSelected, onSelect }: {
+  img: ImageItem; onMove?: (id: string, x: number, y: number) => void;
+  onResize?: (id: string, w: number, h: number) => void;
+  scale: number; isSelected: boolean; onSelect?: (id: string) => void;
+}) => {
+  const { dragging, onMouseDown } = useDrag(onMove, img.id, img.x, img.y, scale);
+  const [resizing, setResizing] = useState(false);
+  if (img.visible === false) return null;
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setResizing(true);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = img.width;
+    const startH = img.height;
+    const aspect = startW / startH;
+    const onMouseMove = (ev: MouseEvent) => {
+      const dx = (ev.clientX - startX) / scale;
+      const newW = Math.max(50, startW + dx);
+      const newH = newW / aspect;
+      onResize?.(img.id, newW, newH);
+    };
+    const onMouseUp = () => {
+      setResizing(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  return (
+    <div
+      onMouseDown={(e) => { onSelect?.(img.id); onMouseDown(e); }}
+      style={{
+        position: "absolute", left: img.x, top: img.y,
+        width: img.width, height: img.height,
+        cursor: dragging ? "grabbing" : "grab",
+        zIndex: img.zIndex || 6, userSelect: "none",
+        opacity: img.opacity ?? 1,
+        transform: img.rotation ? `rotate(${img.rotation}deg)` : undefined,
+        outline: isSelected ? "2px solid #3b82f6" : "none",
+        outlineOffset: 2,
+      }}
+    >
+      <img src={img.src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 4, pointerEvents: "none" }} />
+      {isSelected && (
+        <div
+          onMouseDown={handleResizeStart}
+          style={{
+            position: "absolute", right: -5, bottom: -5, width: 10, height: 10,
+            background: "#3b82f6", borderRadius: 2, cursor: "nwse-resize",
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
 const GridGuides = () => (
   <div style={{ position: "absolute", inset: 0, zIndex: 50, pointerEvents: "none" }}>
     <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(0,150,255,0.3)" }} />
@@ -243,16 +308,34 @@ const CTASlide = ({ slide, onUpdate, onFieldFocus }: {
 
 export function SlideRenderer({
   slide, index, total, onUpdate, onFieldFocus, onMoveSticker,
-  onMoveTextBox, onMoveShape, onUpdateTextBox, exportMode, scale = 0.45, showGrid,
+  onMoveTextBox, onMoveShape, onMoveImage, onResizeImage,
+  onUpdateTextBox, onDeleteElement, selectedElementId, onSelectElement,
+  exportMode, scale = 0.45, showGrid,
 }: SlideRendererProps) {
   const isLoadingImage = slide.backgroundImage === "loading";
   const gFrom = slide.gradientFrom || "#1a1a2e";
   const gTo = slide.gradientTo || "#16213e";
   const overlayOpacity = slide.overlayOpacity ?? 0.75;
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedElementId && !["title", "body"].includes(selectedElementId)) {
+      // Only delete if not editing text
+      const active = document.activeElement;
+      if (active && (active as HTMLElement).contentEditable === "true") return;
+      e.preventDefault();
+      onDeleteElement?.(selectedElementId);
+      onSelectElement?.(null);
+    }
+  }, [selectedElementId, onDeleteElement, onSelectElement]);
+
   return (
     <div
       className="slide-root relative overflow-hidden"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onSelectElement?.(null);
+      }}
       style={{
         width: 1080, height: 1350,
         background: `linear-gradient(180deg, ${gFrom} 0%, ${gTo} 100%)`,
@@ -260,6 +343,7 @@ export function SlideRenderer({
         fontFamily: "'Inter', system-ui, sans-serif",
         transform: exportMode ? undefined : `scale(${scale})`,
         transformOrigin: "top left",
+        outline: "none",
       }}
     >
       <style>{`
@@ -276,6 +360,12 @@ export function SlideRenderer({
       )}
       {isLoadingImage && <LoadingOverlay />}
       {showGrid && <GridGuides />}
+      {/* Images */}
+      {slide.images?.map((img) => (
+        <DraggableImage key={img.id} img={img} onMove={onMoveImage} onResize={onResizeImage}
+          scale={scale} isSelected={selectedElementId === img.id}
+          onSelect={(id) => onSelectElement?.(id)} />
+      ))}
       {/* Shapes */}
       {slide.shapes?.map((shape) => (
         <DraggableShape key={shape.id} shape={shape} onMove={onMoveShape} scale={scale} />

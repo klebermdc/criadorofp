@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { CarouselData, TextStyle, SlideTemplate, TextBoxItem, ShapeItem } from "@/types/carousel";
+import { CarouselData, TextStyle, SlideTemplate, TextBoxItem, ShapeItem, ImageItem } from "@/types/carousel";
 import { GeneratorSidebar } from "@/components/GeneratorSidebar";
 import { CarouselPreview } from "@/components/CarouselPreview";
 
@@ -110,6 +110,38 @@ const Index = () => {
     setCarousel({ ...carousel, slides: updated });
   };
 
+  const handleAddImage = (index: number, src: string) => {
+    if (!carousel) return;
+    const updated = [...carousel.slides];
+    const img: ImageItem = {
+      id: crypto.randomUUID(), src,
+      x: 340, y: 525, width: 400, height: 300,
+      rotation: 0, zIndex: 6, visible: true, opacity: 1,
+    };
+    updated[index] = { ...updated[index], images: [...(updated[index].images || []), img] };
+    setCarousel({ ...carousel, slides: updated });
+  };
+
+  const handleMoveImage = (index: number, id: string, x: number, y: number) => {
+    if (!carousel) return;
+    const updated = [...carousel.slides];
+    updated[index] = {
+      ...updated[index],
+      images: (updated[index].images || []).map((img) => img.id === id ? { ...img, x, y } : img),
+    };
+    setCarousel({ ...carousel, slides: updated });
+  };
+
+  const handleResizeImage = (index: number, id: string, width: number, height: number) => {
+    if (!carousel) return;
+    const updated = [...carousel.slides];
+    updated[index] = {
+      ...updated[index],
+      images: (updated[index].images || []).map((img) => img.id === id ? { ...img, width, height } : img),
+    };
+    setCarousel({ ...carousel, slides: updated });
+  };
+
   const handleToggleElementVisibility = (index: number, id: string) => {
     if (!carousel) return;
     const updated = [...carousel.slides];
@@ -118,6 +150,7 @@ const Index = () => {
       ...slide,
       textBoxes: (slide.textBoxes || []).map((t) => t.id === id ? { ...t, visible: !t.visible } : t),
       shapes: (slide.shapes || []).map((s) => s.id === id ? { ...s, visible: !s.visible } : s),
+      images: (slide.images || []).map((img) => img.id === id ? { ...img, visible: !img.visible } : img),
     };
     setCarousel({ ...carousel, slides: updated });
   };
@@ -131,6 +164,7 @@ const Index = () => {
       textBoxes: (slide.textBoxes || []).filter((t) => t.id !== id),
       shapes: (slide.shapes || []).filter((s) => s.id !== id),
       stickers: (slide.stickers || []).filter((s) => s.id !== id),
+      images: (slide.images || []).filter((img) => img.id !== id),
     };
     setCarousel({ ...carousel, slides: updated });
   };
@@ -175,6 +209,9 @@ const Index = () => {
         onUpdateTextBox={handleUpdateTextBox}
         onAddShape={handleAddShape}
         onMoveShape={handleMoveShape}
+        onAddImage={handleAddImage}
+        onMoveImage={handleMoveImage}
+        onResizeImage={handleResizeImage}
         onToggleElementVisibility={handleToggleElementVisibility}
         onDeleteElement={handleDeleteElement}
         onApplyTemplate={handleApplyTemplate}

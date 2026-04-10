@@ -46,12 +46,26 @@ export interface ShapeItem {
   visible: boolean;
 }
 
+export interface ImageItem {
+  id: string;
+  src: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+  visible: boolean;
+  opacity: number;
+}
+
 export type SlideElement =
   | { kind: "title"; id: string; label: string }
   | { kind: "body"; id: string; label: string }
   | { kind: "textbox"; id: string; label: string; data: TextBoxItem }
   | { kind: "sticker"; id: string; label: string; data: StickerItem }
-  | { kind: "shape"; id: string; label: string; data: ShapeItem };
+  | { kind: "shape"; id: string; label: string; data: ShapeItem }
+  | { kind: "image"; id: string; label: string; data: ImageItem };
 
 export interface CarouselSlide {
   type: "cover" | "content" | "cta";
@@ -68,6 +82,7 @@ export interface CarouselSlide {
   gradientTo?: string;
   textBoxes?: TextBoxItem[];
   shapes?: ShapeItem[];
+  images?: ImageItem[];
   backgroundColor?: string;
 }
 

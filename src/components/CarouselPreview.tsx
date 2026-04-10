@@ -1,7 +1,8 @@
-import { CarouselSlide, TextStyle, StickerItem, SlideTemplate } from "@/types/carousel";
+import { CarouselSlide, TextStyle, StickerItem, SlideTemplate, ImageItem } from "@/types/carousel";
 import { SlideRenderer } from "./SlideRenderer";
 import { SlideEditor } from "./SlideEditor";
 import { LayersPanel } from "./LayersPanel";
+import { ImageLibrary } from "./ImageLibrary";
 import { ChevronLeft, ChevronRight, Download, Grid3X3, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, useState } from "react";
@@ -20,6 +21,9 @@ interface CarouselPreviewProps {
   onUpdateTextBox: (index: number, id: string, text: string) => void;
   onAddShape: (index: number, type: "circle" | "square" | "line") => void;
   onMoveShape: (index: number, id: string, x: number, y: number) => void;
+  onAddImage: (index: number, src: string) => void;
+  onMoveImage: (index: number, id: string, x: number, y: number) => void;
+  onResizeImage: (index: number, id: string, width: number, height: number) => void;
   onToggleElementVisibility: (index: number, id: string) => void;
   onDeleteElement: (index: number, id: string) => void;
   onApplyTemplate: (template: SlideTemplate) => void;
@@ -32,7 +36,8 @@ export function CarouselPreview({
   slides, onUpdateSlide, onUpdateSlideStyle,
   onAddSticker, onRemoveSticker, onMoveSticker,
   onAddTextBox, onMoveTextBox, onUpdateTextBox,
-  onAddShape, onMoveShape, onToggleElementVisibility, onDeleteElement,
+  onAddShape, onMoveShape, onAddImage, onMoveImage, onResizeImage,
+  onToggleElementVisibility, onDeleteElement,
   onApplyTemplate,
 }: CarouselPreviewProps) {
   const [current, setCurrent] = useState(0);
@@ -41,6 +46,7 @@ export function CarouselPreview({
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState(false);
   const [zoomIdx, setZoomIdx] = useState(1);
+  const [showImageLibrary, setShowImageLibrary] = useState(false);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const scale = ZOOM_LEVELS[zoomIdx];
@@ -84,7 +90,7 @@ export function CarouselPreview({
   }
 
   return (
-    <div className="flex-1 flex h-full bg-zinc-950">
+    <div className="flex-1 flex h-full bg-zinc-950 relative">
       {/* Main area */}
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
@@ -109,6 +115,7 @@ export function CarouselPreview({
               onAddTextBox={() => onAddTextBox(current)}
               onAddShape={(type) => onAddShape(current, type)}
               onApplyTemplate={onApplyTemplate}
+              onOpenImageLibrary={() => setShowImageLibrary(true)}
             />
           </div>
         )}
@@ -144,7 +151,12 @@ export function CarouselPreview({
                   onMoveSticker={(id, x, y) => onMoveSticker(i, id, x, y)}
                   onMoveTextBox={(id, x, y) => onMoveTextBox(i, id, x, y)}
                   onMoveShape={(id, x, y) => onMoveShape(i, id, x, y)}
+                  onMoveImage={(id, x, y) => onMoveImage(i, id, x, y)}
+                  onResizeImage={(id, w, h) => onResizeImage(i, id, w, h)}
                   onUpdateTextBox={(id, text) => onUpdateTextBox(i, id, text)}
+                  onDeleteElement={(id) => onDeleteElement(i, id)}
+                  selectedElementId={selectedElementId}
+                  onSelectElement={setSelectedElementId}
                   scale={scale} showGrid={showGrid}
                 />
               </div>
@@ -185,6 +197,17 @@ export function CarouselPreview({
           onSelectElement={setSelectedElementId}
           onToggleVisibility={(id) => onToggleElementVisibility(current, id)}
           onDeleteElement={(id) => onDeleteElement(current, id)}
+        />
+      )}
+
+      {/* Image Library panel */}
+      {showImageLibrary && (
+        <ImageLibrary
+          onSelectImage={(src) => {
+            onAddImage(current, src);
+            setShowImageLibrary(false);
+          }}
+          onClose={() => setShowImageLibrary(false)}
         />
       )}
     </div>
