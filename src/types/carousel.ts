@@ -88,12 +88,22 @@ export interface CarouselSlide {
   backgroundColor?: string;
 }
 
+export type CarouselStatus = "rascunho" | "agendado" | "publicado";
+
 export interface CarouselData {
   id?: string;
   topic: string;
   style: string;
   slides: CarouselSlide[];
   created_at?: string;
+  status?: CarouselStatus;
+  scheduled_date?: string;
+  tone?: string;
+  num_slides?: number;
+  primary_color?: string;
+  secondary_color?: string;
+  caption?: string;
+  hashtags?: string;
 }
 
 export const STYLES = [
@@ -102,9 +112,20 @@ export const STYLES = [
   "Comparativo",
   "Passo a passo",
   "Curiosidades",
+  "Dados/Stats",
 ] as const;
 
 export type CarouselStyle = (typeof STYLES)[number];
+
+export const TONES = [
+  "Profissional",
+  "Casual",
+  "Inspiracional",
+] as const;
+
+export type CarouselTone = (typeof TONES)[number];
+
+export const SLIDE_COUNTS = [5, 7, 10] as const;
 
 export const FONT_OPTIONS = [
   "Inter",
@@ -117,6 +138,7 @@ export const FONT_OPTIONS = [
   "Raleway",
   "Open Sans",
   "Bebas Neue",
+  "Space Grotesk",
 ] as const;
 
 export const STICKER_CATEGORIES = {
@@ -140,7 +162,7 @@ export const GRADIENT_PRESETS = [
   { from: "#22c55e", to: "#3b82f6", label: "Neon" },
   { from: "#fce7f3", to: "#ddd6fe", label: "Pastel" },
   { from: "#1e3a5f", to: "#6b7280", label: "Corporate" },
-  { from: "#E63946", to: "#0B1426", label: "OFP" },
+  { from: "#3377AF", to: "#0A0A0F", label: "Explotek" },
 ];
 
 export interface SlideTemplate {
@@ -169,11 +191,11 @@ export const SLIDE_TEMPLATES: SlideTemplate[] = [
   {
     id: "dark-pro",
     name: "Dark Pro",
-    description: "Fundo navy, texto branco, barra vermelha",
-    titleStyle: { color: "#e94560", fontFamily: "Montserrat", fontWeight: "bold", fontSize: 48 },
+    description: "Fundo escuro, texto branco, accent azul",
+    titleStyle: { color: "#3377AF", fontFamily: "Montserrat", fontWeight: "bold", fontSize: 48 },
     bodyStyle: { color: "#ffffff", fontFamily: "Inter", fontWeight: "normal", fontSize: 20 },
-    gradientFrom: "#0B1426",
-    gradientTo: "#1a1a2e",
+    gradientFrom: "#0A0A0F",
+    gradientTo: "#12121A",
     overlayOpacity: 0.75,
   },
   {
@@ -199,7 +221,7 @@ export const SLIDE_TEMPLATES: SlideTemplate[] = [
   {
     id: "bold",
     name: "Bold",
-    description: "Fundo colorido sólido, texto grande bold",
+    description: "Fundo colorido solido, texto grande bold",
     titleStyle: { color: "#ffffff", fontFamily: "Oswald", fontWeight: "900", fontSize: 56 },
     bodyStyle: { color: "#ffffff", fontFamily: "Roboto", fontWeight: "normal", fontSize: 22 },
     gradientFrom: "#dc2626",
@@ -207,13 +229,13 @@ export const SLIDE_TEMPLATES: SlideTemplate[] = [
     overlayOpacity: 0,
   },
   {
-    id: "ofp-brand",
-    name: "OFP Brand",
-    description: "Cores da marca, estilo institucional",
-    titleStyle: { color: "#e94560", fontFamily: "Montserrat", fontWeight: "bold", fontSize: 48 },
+    id: "explotek",
+    name: "Explotek",
+    description: "Cores Explotek, azul + verde neon",
+    titleStyle: { color: "#83F714", fontFamily: "Space Grotesk", fontWeight: "bold", fontSize: 48 },
     bodyStyle: { color: "#ffffff", fontFamily: "Inter", fontWeight: "normal", fontSize: 20 },
-    gradientFrom: "#0B1426",
-    gradientTo: "#1a2744",
+    gradientFrom: "#0A0A0F",
+    gradientTo: "#12121A",
     overlayOpacity: 0.7,
   },
 ];

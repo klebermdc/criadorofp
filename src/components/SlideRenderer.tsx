@@ -28,6 +28,7 @@ function getTextStyle(style?: TextStyle, defaults?: Partial<TextStyle>): React.C
     fontWeight: s.fontWeight || "bold",
     textAlign: s.textAlign,
     color: s.color,
+    opacity: s.opacity,
     fontFamily: s.fontFamily ? `'${s.fontFamily}', sans-serif` : undefined,
     letterSpacing: s.letterSpacing ? `${s.letterSpacing}px` : undefined,
     lineHeight: s.lineHeight || undefined,
@@ -57,7 +58,7 @@ const EditableText = ({
     suppressContentEditableWarning
     onBlur={(e) => onChange((e.currentTarget as HTMLElement).textContent || "")}
     onFocus={onFocus}
-    className={`outline-none focus:ring-2 focus:ring-red-500/50 focus:rounded px-1 cursor-text ${className}`}
+    className={`outline-none focus:ring-2 focus:ring-[#3377AF]/50 focus:rounded px-1 cursor-text ${className}`}
     style={{ position: "relative", zIndex: 2, ...style }}
   >
     {value}
@@ -89,7 +90,7 @@ const LoadingOverlay = () => (
   }}>
     <div style={{
       width: 40, height: 40,
-      border: "3px solid rgba(255,255,255,0.3)", borderTopColor: "#e94560",
+      border: "3px solid rgba(255,255,255,0.3)", borderTopColor: "#3377AF",
       borderRadius: "50%", animation: "spin 1s linear infinite",
     }} />
   </div>
@@ -148,7 +149,7 @@ const DraggableTextBox = ({ tb, onMove, onUpdateText, scale }: {
       <div
         contentEditable suppressContentEditableWarning
         onBlur={(e) => onUpdateText?.(tb.id, e.currentTarget.textContent || "")}
-        className="outline-none focus:ring-2 focus:ring-red-500/50 focus:rounded px-2 py-1"
+        className="outline-none focus:ring-2 focus:ring-[#3377AF]/50 focus:rounded px-2 py-1"
         style={getTextStyle(tb.style, { fontSize: 24, color: "#ffffff", fontWeight: "normal" })}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -194,7 +195,6 @@ const DraggableImage = ({ img, onMove, onResize, scale, isSelected, onSelect }: 
     e.preventDefault(); e.stopPropagation();
     setResizing(true);
     const startX = e.clientX;
-    const startY = e.clientY;
     const startW = img.width;
     const startH = img.height;
     const aspect = startW / startH;
@@ -223,7 +223,7 @@ const DraggableImage = ({ img, onMove, onResize, scale, isSelected, onSelect }: 
         zIndex: img.zIndex || 6, userSelect: "none",
         opacity: img.opacity ?? 1,
         transform: img.rotation ? `rotate(${img.rotation}deg)` : undefined,
-        outline: isSelected ? "2px solid #3b82f6" : "none",
+        outline: isSelected ? "2px solid #3377AF" : "none",
         outlineOffset: 2,
       }}
     >
@@ -233,7 +233,7 @@ const DraggableImage = ({ img, onMove, onResize, scale, isSelected, onSelect }: 
           onMouseDown={handleResizeStart}
           style={{
             position: "absolute", right: -5, bottom: -5, width: 10, height: 10,
-            background: "#3b82f6", borderRadius: 2, cursor: "nwse-resize",
+            background: "#3377AF", borderRadius: 2, cursor: "nwse-resize",
           }}
         />
       )}
@@ -243,12 +243,12 @@ const DraggableImage = ({ img, onMove, onResize, scale, isSelected, onSelect }: 
 
 const GridGuides = () => (
   <div style={{ position: "absolute", inset: 0, zIndex: 50, pointerEvents: "none" }}>
-    <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(0,150,255,0.3)" }} />
-    <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(0,150,255,0.3)" }} />
-    <div style={{ position: "absolute", left: "33.33%", top: 0, bottom: 0, width: 1, background: "rgba(0,150,255,0.15)" }} />
-    <div style={{ position: "absolute", left: "66.66%", top: 0, bottom: 0, width: 1, background: "rgba(0,150,255,0.15)" }} />
-    <div style={{ position: "absolute", top: "33.33%", left: 0, right: 0, height: 1, background: "rgba(0,150,255,0.15)" }} />
-    <div style={{ position: "absolute", top: "66.66%", left: 0, right: 0, height: 1, background: "rgba(0,150,255,0.15)" }} />
+    <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(51,119,175,0.3)" }} />
+    <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(51,119,175,0.3)" }} />
+    <div style={{ position: "absolute", left: "33.33%", top: 0, bottom: 0, width: 1, background: "rgba(51,119,175,0.15)" }} />
+    <div style={{ position: "absolute", left: "66.66%", top: 0, bottom: 0, width: 1, background: "rgba(51,119,175,0.15)" }} />
+    <div style={{ position: "absolute", top: "33.33%", left: 0, right: 0, height: 1, background: "rgba(51,119,175,0.15)" }} />
+    <div style={{ position: "absolute", top: "66.66%", left: 0, right: 0, height: 1, background: "rgba(51,119,175,0.15)" }} />
   </div>
 );
 
@@ -300,12 +300,19 @@ const DraggableBody = ({ slide, onUpdate, onFieldFocus, scale, defaultPos }: {
   );
 };
 
-/* Slide decorations (non-text) */
+/* Slide decorations */
 const CoverDecorations = ({ slide }: { slide: CarouselSlide }) => (
   <>
-    <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: (slide.titlePosition?.y || 400) - 50, width: 80, height: 4, backgroundColor: "#e94560", zIndex: 2 }} />
+    {/* Accent line */}
+    <div style={{
+      position: "absolute", left: "50%", transform: "translateX(-50%)",
+      top: (slide.titlePosition?.y || 400) - 50, width: 80, height: 4,
+      background: "linear-gradient(90deg, #3377AF, #83F714)",
+      borderRadius: 2, zIndex: 2,
+    }} />
+    {/* Swipe hint */}
     <div style={{ position: "absolute", bottom: 200, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
-      <p className="text-xl opacity-70" style={{ color: "#ffffff" }}>Deslize →</p>
+      <p className="text-xl opacity-70" style={{ color: "#ffffff" }}>Deslize &rarr;</p>
     </div>
     <Footer />
   </>
@@ -314,8 +321,13 @@ const CoverDecorations = ({ slide }: { slide: CarouselSlide }) => (
 const ContentDecorations = ({ slide }: { slide: CarouselSlide }) => (
   <>
     {slide.number && (
-      <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold"
-        style={{ position: "absolute", left: 56, top: 64, backgroundColor: "#e94560", color: "#ffffff", zIndex: 2 }}>{slide.number}</div>
+      <div className="flex items-center justify-center text-2xl font-bold"
+        style={{
+          position: "absolute", left: 56, top: 64, width: 56, height: 56,
+          borderRadius: "50%",
+          background: "linear-gradient(135deg, #3377AF, #83F714)",
+          color: "#0A0A0F", zIndex: 2,
+        }}>{slide.number}</div>
     )}
     {slide.emoji && (
       <div className="text-7xl text-center" style={{ position: "absolute", bottom: 120, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>{slide.emoji}</div>
@@ -327,7 +339,7 @@ const ContentDecorations = ({ slide }: { slide: CarouselSlide }) => (
 const CTADecorations = () => (
   <>
     <div className="text-6xl" style={{ position: "absolute", top: 300, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>🎢</div>
-    <p className="text-2xl opacity-80" style={{ position: "absolute", bottom: 280, left: "50%", transform: "translateX(-50%)", zIndex: 2, color: "#ffffff" }}>@orlandofastpass</p>
+    <p className="text-2xl font-bold" style={{ position: "absolute", bottom: 280, left: "50%", transform: "translateX(-50%)", zIndex: 2, color: "#3377AF" }}>@orlandofastpass</p>
     <p className="text-lg opacity-60" style={{ position: "absolute", bottom: 240, left: "50%", transform: "translateX(-50%)", zIndex: 2, color: "#ffffff" }}>orlandofastpass.com.br</p>
     <Footer />
   </>
@@ -340,13 +352,12 @@ export function SlideRenderer({
   exportMode, scale = 0.45, showGrid,
 }: SlideRendererProps) {
   const isLoadingImage = slide.backgroundImage === "loading";
-  const gFrom = slide.gradientFrom || "#1a1a2e";
-  const gTo = slide.gradientTo || "#16213e";
+  const gFrom = slide.gradientFrom || "#0A0A0F";
+  const gTo = slide.gradientTo || "#12121A";
   const overlayOpacity = slide.overlayOpacity ?? 0.75;
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.key === "Delete" || e.key === "Backspace") && selectedElementId && !["title", "body"].includes(selectedElementId)) {
-      // Only delete if not editing text
       const active = document.activeElement;
       if (active && (active as HTMLElement).contentEditable === "true") return;
       e.preventDefault();
@@ -374,7 +385,7 @@ export function SlideRenderer({
       }}
     >
       <style>{`
-        .slide-root h2 { color: #e94560; }
+        .slide-root h2 { color: #3377AF; }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
       <BackgroundImage src={isLoadingImage ? undefined : slide.backgroundImage} />

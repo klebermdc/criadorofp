@@ -12,7 +12,7 @@ interface LayersPanelProps {
 
 function getElements(slide: CarouselSlide): SlideElement[] {
   const elements: SlideElement[] = [];
-  elements.push({ kind: "title", id: "title", label: slide.title.slice(0, 25) || "Título" });
+  elements.push({ kind: "title", id: "title", label: slide.title.slice(0, 25) || "Titulo" });
   if (slide.body) {
     elements.push({ kind: "body", id: "body", label: slide.body.slice(0, 25) || "Corpo" });
   }
@@ -50,9 +50,9 @@ export function LayersPanel({
   const elements = getElements(slide);
 
   return (
-    <div className="hidden md:flex w-52 bg-zinc-900 border-l border-zinc-800 flex-col h-full">
-      <div className="px-3 py-2 border-b border-zinc-800">
-        <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Camadas</span>
+    <div className="hidden md:flex w-52 flex-col h-full" style={{ borderLeft: "1px solid rgba(255,255,255,0.08)", backgroundColor: "#0A0A0F" }}>
+      <div className="px-3 py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#94A3B8" }}>Camadas</span>
       </div>
       <ScrollArea className="flex-1">
         <div className="p-1.5 space-y-0.5">
@@ -68,9 +68,11 @@ export function LayersPanel({
               <div
                 key={el.id}
                 onClick={() => onSelectElement(el.id)}
-                className={`flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer group transition-colors text-xs ${
-                  isSelected ? "bg-zinc-700 text-white" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                }`}
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer group transition-colors text-xs"
+                style={{
+                  backgroundColor: isSelected ? "rgba(51,119,175,0.15)" : "transparent",
+                  color: isSelected ? "#3377AF" : "#94A3B8",
+                }}
               >
                 <GripVertical className="h-3 w-3 opacity-30" />
                 <Icon className="h-3 w-3 shrink-0" />
@@ -79,13 +81,13 @@ export function LayersPanel({
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => { e.stopPropagation(); onToggleVisibility(el.id); }}
-                      className="p-0.5 rounded hover:bg-zinc-600"
+                      className="p-0.5 rounded hover:bg-white/5"
                     >
                       {isVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); onDeleteElement(el.id); }}
-                      className="p-0.5 rounded hover:bg-red-900/50 text-red-400"
+                      className="p-0.5 rounded hover:bg-red-500/10 text-red-400"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -95,7 +97,7 @@ export function LayersPanel({
             );
           })}
           {elements.length === 0 && (
-            <p className="text-[10px] text-zinc-500 text-center py-4">Nenhum elemento</p>
+            <p className="text-[10px] text-center py-4" style={{ color: "#94A3B8" }}>Nenhum elemento</p>
           )}
         </div>
       </ScrollArea>

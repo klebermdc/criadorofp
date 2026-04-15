@@ -1,17 +1,20 @@
-import { CarouselSlide, TextStyle, StickerItem, SlideTemplate, ImageItem } from "@/types/carousel";
+import { CarouselSlide, TextStyle, StickerItem, SlideTemplate, ImageItem, CarouselData } from "@/types/carousel";
 import { SlideRenderer } from "./SlideRenderer";
 import { SlideEditor } from "./SlideEditor";
 import { LayersPanel } from "./LayersPanel";
 import { ImageLibrary } from "./ImageLibrary";
-import { ChevronLeft, ChevronRight, Download, Grid3X3, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Grid3X3, ZoomIn, ZoomOut, FileImage, FileArchive, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import JSZip from "jszip";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface CarouselPreviewProps {
   slides: CarouselSlide[];
+  carousel: CarouselData | null;
   onUpdateSlide: (index: number, field: string, value: any) => void;
   onUpdateSlideStyle: (index: number, field: "title" | "body", style: Partial<TextStyle>) => void;
   onAddSticker: (index: number, emoji: string) => void;
@@ -30,13 +33,13 @@ interface CarouselPreviewProps {
   onApplyTemplate: (template: SlideTemplate) => void;
 }
 
-const ZOOM_LEVELS_DESKTOP = [0.3, 0.45, 0.55, 0.7];
-const ZOOM_LABELS_DESKTOP = ["30%", "45%", "55%", "70%"];
+const ZOOM_LEVELS_DESKTOP = [0.3, 0.4, 0.5, 0.6];
+const ZOOM_LABELS_DESKTOP = ["30%", "40%", "50%", "60%"];
 const ZOOM_LEVELS_MOBILE = [0.2, 0.25, 0.3, 0.35];
 const ZOOM_LABELS_MOBILE = ["20%", "25%", "30%", "35%"];
 
 export function CarouselPreview({
-  slides, onUpdateSlide, onUpdateSlideStyle,
+  slides, carousel, onUpdateSlide, onUpdateSlideStyle,
   onAddSticker, onRemoveSticker, onMoveSticker,
   onAddTextBox, onMoveTextBox, onUpdateTextBox,
   onAddShape, onMoveShape, onAddImage, onMoveImage, onResizeImage,
@@ -53,12 +56,34 @@ export function CarouselPreview({
   const [showGrid, setShowGrid] = useState(false);
   const [zoomIdx, setZoomIdx] = useState(1);
   const [showImageLibrary, setShowImageLibrary] = useState(false);
+  const [copiedCaption, setCopiedCaption] = useState(false);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const scale = ZOOM_LEVELS[zoomIdx];
   const prev = () => setCurrent((c) => Math.max(0, c - 1));
   const next = () => setCurrent((c) => Math.min(slides.length - 1, c + 1));
   const currentSlide = slides[current];
+
+  const exportSingleSlide = async () => {
+    setExporting(true);
+    try {
+      const el = slideRefs.current[current];
+      if (!el) return;
+      const slideEl = el.querySelector(".slide-root") as HTMLElement;
+      if (!slideEl) return;
+      const dataUrl = await toPng(slideEl, { width: 1080, height: 1350, pixelRatio: 1 });
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `slide-${current + 1}.png`;
+      link.click();
+      toast.success("Slide exportado como PNG");
+    } catch (e) {
+      console.error("Export error:", e);
+      toast.error("Erro ao exportar slide");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const exportSlides = async () => {
     setExporting(true);
@@ -80,28 +105,52 @@ export function CarouselPreview({
       link.href = URL.createObjectURL(blob);
       link.download = "carousel-ofp.zip";
       link.click();
+      toast.success("Carrossel exportado como ZIP");
     } catch (e) {
       console.error("Export error:", e);
+      toast.error("Erro ao exportar carrossel");
     } finally {
       setExporting(false);
     }
   };
 
+  const copyCaption = () => {
+    const caption = carousel?.caption || "";
+    const hashtags = carousel?.hashtags || "";
+    const text = `${caption}\n\n${hashtags}`.trim();
+    if (text) {
+      navigator.clipboard.writeText(text);
+      setCopiedCaption(true);
+      toast.success("Legenda copiada!");
+      setTimeout(() => setCopiedCaption(false), 2000);
+    } else {
+      toast.error("Nenhuma legenda disponivel");
+    }
+  };
+
   if (slides.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-zinc-950">
-        <p className="text-zinc-500 text-lg">Gere um carrossel para visualizar aqui</p>
+      <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: "#0A0A0F" }}>
+        <div className="text-center max-w-sm">
+          <div className="w-20 h-20 rounded-2xl mx-auto mb-6 flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(51,119,175,0.15), rgba(131,247,20,0.1))" }}>
+            <FileImage className="h-10 w-10" style={{ color: "#3377AF" }} />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">Nenhum carrossel criado</h3>
+          <p className="text-sm" style={{ color: "#94A3B8" }}>
+            Preencha o formulario ao lado e clique em "Gerar com IA" para criar seu primeiro carrossel profissional.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex h-full bg-zinc-950 relative">
+    <div className="flex-1 flex h-full relative" style={{ backgroundColor: "#0A0A0F" }}>
       {/* Main area */}
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
         {currentSlide && (
-          <div className="border-b border-zinc-800 p-2 overflow-x-auto">
+          <div className="overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             <SlideEditor
               activeField={activeField}
               titleStyle={currentSlide.titleStyle || {}}
@@ -130,24 +179,27 @@ export function CarouselPreview({
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-4 overflow-auto">
           {/* Zoom + grid controls */}
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-white"
+            <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-white"
+              style={{ color: "#94A3B8" }}
               onClick={() => setZoomIdx((i) => Math.max(0, i - 1))} disabled={zoomIdx === 0}>
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
-            <span className="text-xs text-zinc-500 w-10 text-center font-mono">{ZOOM_LABELS[zoomIdx]}</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-white"
+            <span className="text-xs w-10 text-center font-mono" style={{ color: "#94A3B8" }}>{ZOOM_LABELS[zoomIdx]}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-white"
+              style={{ color: "#94A3B8" }}
               onClick={() => setZoomIdx((i) => Math.min(ZOOM_LEVELS.length - 1, i + 1))} disabled={zoomIdx === ZOOM_LEVELS.length - 1}>
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
-            <div className="w-px h-4 bg-zinc-700" />
-            <Button variant={showGrid ? "secondary" : "ghost"} size="icon" className="h-7 w-7 text-zinc-400"
+            <div className="w-px h-4" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
+            <Button variant={showGrid ? "secondary" : "ghost"} size="icon" className="h-7 w-7"
+              style={{ color: showGrid ? "#3377AF" : "#94A3B8" }}
               onClick={() => setShowGrid(!showGrid)}>
               <Grid3X3 className="h-3.5 w-3.5" />
             </Button>
           </div>
 
           {/* Slide */}
-          <div className="relative overflow-hidden rounded-lg shadow-2xl" style={{ width: 1080 * scale, height: 1350 * scale }}>
+          <div className="relative overflow-hidden rounded-xl shadow-2xl" style={{ width: 1080 * scale, height: 1350 * scale, boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
             {slides.map((slide, i) => (
               <div key={i} ref={(el) => (slideRefs.current[i] = el)} className={i === current ? "block" : "hidden"}>
                 <SlideRenderer
@@ -171,27 +223,93 @@ export function CarouselPreview({
 
           {/* Navigation */}
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={prev} disabled={current === 0} className="text-zinc-400 hover:text-white">
+            <Button variant="ghost" size="icon" onClick={prev} disabled={current === 0} className="hover:text-white" style={{ color: "#94A3B8" }}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="flex gap-1.5">
               {slides.map((_, i) => (
                 <button key={i} onClick={() => setCurrent(i)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    i === current ? "bg-red-500 scale-125" : "bg-zinc-700 hover:bg-zinc-500"
-                  }`} />
+                  className="w-2 h-2 rounded-full transition-all"
+                  style={{
+                    backgroundColor: i === current ? "#3377AF" : "rgba(255,255,255,0.15)",
+                    transform: i === current ? "scale(1.3)" : "scale(1)",
+                  }} />
               ))}
             </div>
-            <Button variant="ghost" size="icon" onClick={next} disabled={current === slides.length - 1} className="text-zinc-400 hover:text-white">
+            <Button variant="ghost" size="icon" onClick={next} disabled={current === slides.length - 1} className="hover:text-white" style={{ color: "#94A3B8" }}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <span className="text-xs text-zinc-500 ml-1">{current + 1}/{slides.length}</span>
+            <span className="text-xs ml-1" style={{ color: "#94A3B8" }}>{current + 1}/{slides.length}</span>
           </div>
 
-          <Button onClick={exportSlides} disabled={exporting} size="sm" className="gap-1.5 bg-red-600 hover:bg-red-700 text-white">
-            <Download className="h-3.5 w-3.5" />
-            {exporting ? "Exportando..." : "Exportar PNG (ZIP)"}
-          </Button>
+          {/* Export buttons */}
+          <div className="flex gap-2 flex-wrap justify-center">
+            <Button
+              onClick={exportSingleSlide}
+              disabled={exporting}
+              size="sm"
+              className="gap-1.5 text-xs"
+              style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }}
+              variant="outline"
+            >
+              <FileImage className="h-3.5 w-3.5" />
+              Exportar Slide PNG
+            </Button>
+            <Button
+              onClick={exportSlides}
+              disabled={exporting}
+              size="sm"
+              className="gap-1.5 text-xs font-semibold"
+              style={{ background: "linear-gradient(135deg, #3377AF, #83F714)", color: "#0A0A0F" }}
+            >
+              <FileArchive className="h-3.5 w-3.5" />
+              {exporting ? "Exportando..." : "Exportar ZIP"}
+            </Button>
+            <Button
+              onClick={copyCaption}
+              size="sm"
+              className="gap-1.5 text-xs"
+              style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }}
+              variant="outline"
+            >
+              {copiedCaption ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+              {copiedCaption ? "Copiado!" : "Copiar Legenda"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Bottom: Slide thumbnails strip */}
+        <div className="py-2 px-4" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", backgroundColor: "#0A0A0F" }}>
+          <ScrollArea className="w-full">
+            <div className="flex gap-2 pb-1">
+              {slides.map((slide, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrent(i)}
+                  className="shrink-0 rounded-lg overflow-hidden transition-all hover:opacity-90"
+                  style={{
+                    width: 64,
+                    height: 80,
+                    border: i === current ? "2px solid #3377AF" : "2px solid rgba(255,255,255,0.06)",
+                    background: `linear-gradient(180deg, ${slide.gradientFrom || "#1a1a2e"} 0%, ${slide.gradientTo || "#16213e"} 100%)`,
+                    position: "relative",
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-white/80 text-center px-1 leading-tight truncate">
+                      {slide.title.slice(0, 20)}
+                    </span>
+                  </div>
+                  <div className="absolute bottom-0.5 left-0 right-0 text-center">
+                    <span className="text-[8px] font-mono" style={{ color: i === current ? "#3377AF" : "#94A3B8" }}>
+                      {i + 1}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         </div>
       </div>
 

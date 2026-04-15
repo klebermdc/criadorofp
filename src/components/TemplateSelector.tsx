@@ -10,8 +10,8 @@ export function TemplateSelector({ onApplyTemplate }: TemplateSelectorProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 mb-2">
-        <LayoutTemplate className="h-3.5 w-3.5 text-zinc-400" />
-        <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Templates</span>
+        <LayoutTemplate className="h-3.5 w-3.5" style={{ color: "#94A3B8" }} />
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#94A3B8" }}>Templates</span>
       </div>
       <div className="grid grid-cols-3 gap-1.5">
         <TooltipProvider delayDuration={200}>
@@ -20,9 +20,10 @@ export function TemplateSelector({ onApplyTemplate }: TemplateSelectorProps) {
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onApplyTemplate(t)}
-                  className="h-14 rounded-lg border border-zinc-700 hover:border-zinc-500 transition-all hover:scale-105 flex flex-col items-center justify-center gap-0.5 text-center px-1"
+                  className="h-14 rounded-lg transition-all hover:scale-105 flex flex-col items-center justify-center gap-0.5 text-center px-1"
                   style={{
                     background: `linear-gradient(180deg, ${t.gradientFrom}, ${t.gradientTo})`,
+                    border: "1px solid rgba(255,255,255,0.08)",
                   }}
                 >
                   <span className="text-[10px] font-bold" style={{ color: t.titleStyle.color }}>{t.name}</span>
