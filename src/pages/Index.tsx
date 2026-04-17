@@ -1,13 +1,19 @@
 import { useState, useCallback } from "react";
-import { CarouselData, TextStyle, SlideTemplate, TextBoxItem, ShapeItem, ImageItem } from "@/types/carousel";
+import { CarouselData, TextStyle, SlideTemplate, TextBoxItem, ShapeItem, ImageItem, Brand } from "@/types/carousel";
 import { GeneratorSidebar } from "@/components/GeneratorSidebar";
 import { CarouselPreview } from "@/components/CarouselPreview";
 import { MyPosts } from "@/components/MyPosts";
 import { CalendarView } from "@/components/CalendarView";
 import { AnalyticsPlaceholder } from "@/components/AnalyticsPlaceholder";
+import { BrandManager } from "@/components/BrandManager";
+import { InstagramAccountManager } from "@/components/InstagramAccountManager";
+import { InstagramPublisher } from "@/components/InstagramPublisher";
+import { PublishButton } from "@/components/PublishButton";
+import { YouTubeClipper } from "@/components/YouTubeClipper";
+import { BotCommands } from "@/components/BotCommands";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { PenTool, FolderOpen, CalendarDays, BarChart3, PanelLeft, Eye } from "lucide-react";
+import { PenTool, FolderOpen, CalendarDays, BarChart3, PanelLeft, Eye, Building2, Film, Instagram, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ofpLogo from "@/assets/ofp-logo.png";
 
@@ -16,6 +22,20 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("criar");
   const isMobile = useIsMobile();
   const [mobileEditorTab, setMobileEditorTab] = useState<"generator" | "preview">("generator");
+  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const [showPublisher, setShowPublisher] = useState(false);
+  const [slideImages, setSlideImages] = useState<string[]>([]);
+
+  const handleSelectBrand = (brand: Brand) => {
+    setSelectedBrand(brand);
+    if (carousel) {
+      setCarousel({
+        ...carousel,
+        primary_color: brand.primary_color,
+        secondary_color: brand.secondary_color,
+      });
+    }
+  };
 
   const handleUpdateSlide = (index: number, field: string, value: any) => {
     if (!carousel) return;
@@ -226,6 +246,10 @@ const Index = () => {
               <PenTool className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Criar</span>
             </TabsTrigger>
+            <TabsTrigger value="reels" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
+              <Film className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Reels</span>
+            </TabsTrigger>
             <TabsTrigger value="posts" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
               <FolderOpen className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Meus Posts</span>
@@ -237,6 +261,18 @@ const Index = () => {
             <TabsTrigger value="analytics" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
               <BarChart3 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Analytics</span>
+            </TabsTrigger>
+            <TabsTrigger value="marcas" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
+              <Building2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Marcas</span>
+            </TabsTrigger>
+            <TabsTrigger value="instagram" className="gap-1.5 text-xs data-[state=active]:bg-[#E1306C]/20 data-[state=active]:text-[#E1306C]">
+              <Instagram className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Instagram</span>
+            </TabsTrigger>
+            <TabsTrigger value="bot" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Bot</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -307,6 +343,10 @@ const Index = () => {
           </div>
         )}
 
+        {activeTab === "reels" && (
+          <YouTubeClipper />
+        )}
+
         {activeTab === "posts" && (
           <MyPosts onEdit={handleEditCarousel} />
         )}
@@ -318,7 +358,40 @@ const Index = () => {
         {activeTab === "analytics" && (
           <AnalyticsPlaceholder />
         )}
+
+        {activeTab === "marcas" && (
+          <BrandManager onSelectBrand={handleSelectBrand} selectedBrand={selectedBrand} />
+        )}
+
+        {activeTab === "instagram" && (
+          <InstagramAccountManager />
+        )}
+
+        {activeTab === "bot" && (
+          <BotCommands />
+        )}
       </div>
+
+      {/* Publish button (floating) */}
+      {activeTab === "criar" && (
+        <PublishButton
+          carousel={carousel}
+          onPublish={() => setShowPublisher(true)}
+        />
+      )}
+
+      {/* Instagram Publisher modal */}
+      {carousel && (
+        <InstagramPublisher
+          carousel={carousel}
+          slideImages={slideImages}
+          isOpen={showPublisher}
+          onClose={() => setShowPublisher(false)}
+          onPublished={(postId) => {
+            setShowPublisher(false);
+          }}
+        />
+      )}
     </div>
   );
 };
