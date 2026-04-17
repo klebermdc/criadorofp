@@ -11,9 +11,15 @@ import { InstagramPublisher } from "@/components/InstagramPublisher";
 import { PublishButton } from "@/components/PublishButton";
 import { YouTubeClipper } from "@/components/YouTubeClipper";
 import { BotCommands } from "@/components/BotCommands";
+import { VideoToCarousel } from "@/components/VideoToCarousel";
+import { VideoTranscriber } from "@/components/VideoTranscriber";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { PenTool, FolderOpen, CalendarDays, BarChart3, PanelLeft, Eye, Building2, Film, Instagram, MessageSquare } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  PenTool, FolderOpen, CalendarDays, BarChart3, PanelLeft, Eye,
+  Building2, Film, Instagram, MessageSquare, MoreHorizontal, X,
+  Video, FileText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ofpLogo from "@/assets/ofp-logo.png";
 
@@ -25,6 +31,7 @@ const Index = () => {
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [showPublisher, setShowPublisher] = useState(false);
   const [slideImages, setSlideImages] = useState<string[]>([]);
+  const [showMoreDrawer, setShowMoreDrawer] = useState(false);
 
   const handleSelectBrand = (brand: Brand) => {
     setSelectedBrand(brand);
@@ -225,91 +232,124 @@ const Index = () => {
     setActiveTab("criar");
   };
 
+  // Bottom nav: 5 main tabs (mobile)
+  const bottomNavItems = [
+    { id: "criar", icon: PenTool, label: "Criar" },
+    { id: "reels", icon: Film, label: "Reels" },
+    { id: "posts", icon: FolderOpen, label: "Posts" },
+    { id: "marcas", icon: Building2, label: "Marcas" },
+    { id: "mais", icon: MoreHorizontal, label: "Mais" },
+  ];
+
+  // "Mais" drawer items
+  const drawerItems = [
+    { id: "video-carousel", icon: Video, label: "Video → Carrossel" },
+    { id: "transcricao", icon: FileText, label: "Transcricao" },
+    { id: "calendario", icon: CalendarDays, label: "Calendario" },
+    { id: "analytics", icon: BarChart3, label: "Analytics" },
+    { id: "instagram", icon: Instagram, label: "Instagram" },
+    { id: "bot", icon: MessageSquare, label: "Bot" },
+  ];
+
+  const isMoreTabActive = drawerItems.some((item) => item.id === activeTab);
+
+  const handleBottomNavTap = (id: string) => {
+    if (id === "mais") {
+      setShowMoreDrawer((prev) => !prev);
+    } else {
+      setShowMoreDrawer(false);
+      setActiveTab(id);
+    }
+  };
+
+  const handleDrawerItemTap = (id: string) => {
+    setActiveTab(id);
+    setShowMoreDrawer(false);
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ backgroundColor: "#0A0A0F" }}>
-      {/* Top navigation bar */}
-      <header className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)", backgroundColor: "#0A0A0F" }}>
-        <div className="flex items-center gap-3">
+      {/* ===== DESKTOP TOP NAV ===== */}
+      <header className="hidden sm:flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.08)", backgroundColor: "#0A0A0F" }}>
+        <div className="flex items-center gap-3 shrink-0">
           <img src={ofpLogo} alt="CriadorOFP" className="h-8 w-8" />
-          <div className="hidden sm:block">
+          <div>
             <h1 className="text-base font-bold leading-tight">
               <span style={{ color: "#3377AF" }}>Criador</span>
               <span style={{ color: "#83F714" }}>OFP</span>
-              <span className="text-xs font-normal ml-2" style={{ color: "#94A3B8" }}>2.0</span>
+              <span className="text-xs font-normal ml-2" style={{ color: "#94A3B8" }}>3.0</span>
             </h1>
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex justify-center">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex justify-center overflow-hidden">
           <TabsList className="h-9" style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)" }}>
             <TabsTrigger value="criar" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
-              <PenTool className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Criar</span>
+              <PenTool className="h-3.5 w-3.5" /> Criar
             </TabsTrigger>
             <TabsTrigger value="reels" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
-              <Film className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Reels</span>
+              <Film className="h-3.5 w-3.5" /> Reels
             </TabsTrigger>
             <TabsTrigger value="posts" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
-              <FolderOpen className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Meus Posts</span>
+              <FolderOpen className="h-3.5 w-3.5" /> Meus Posts
             </TabsTrigger>
             <TabsTrigger value="calendario" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
-              <CalendarDays className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Calendario</span>
+              <CalendarDays className="h-3.5 w-3.5" /> Calendario
             </TabsTrigger>
             <TabsTrigger value="analytics" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
-              <BarChart3 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Analytics</span>
+              <BarChart3 className="h-3.5 w-3.5" /> Analytics
             </TabsTrigger>
             <TabsTrigger value="marcas" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
-              <Building2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Marcas</span>
+              <Building2 className="h-3.5 w-3.5" /> Marcas
             </TabsTrigger>
             <TabsTrigger value="instagram" className="gap-1.5 text-xs data-[state=active]:bg-[#E1306C]/20 data-[state=active]:text-[#E1306C]">
-              <Instagram className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Instagram</span>
+              <Instagram className="h-3.5 w-3.5" /> Instagram
             </TabsTrigger>
             <TabsTrigger value="bot" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Bot</span>
+              <MessageSquare className="h-3.5 w-3.5" /> Bot
+            </TabsTrigger>
+            <TabsTrigger value="video-carousel" className="gap-1.5 text-xs data-[state=active]:bg-[#83F714]/20 data-[state=active]:text-[#83F714]">
+              <Video className="h-3.5 w-3.5" /> Video→Post
+            </TabsTrigger>
+            <TabsTrigger value="transcricao" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
+              <FileText className="h-3.5 w-3.5" /> Transcricao
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <div className="w-20" />
+        <div className="w-20 shrink-0" />
       </header>
 
-      {/* Tab content */}
-      <div className="flex-1 overflow-hidden">
+      {/* ===== MAIN CONTENT ===== */}
+      <div className="flex-1 overflow-hidden relative">
+        {/* Criar tab */}
         {activeTab === "criar" && (
           <div className="flex flex-col h-full">
-            {/* Mobile tab bar for editor */}
-            {isMobile && (
-              <div className="flex" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", backgroundColor: "#12121A" }}>
-                <Button
-                  variant="ghost"
-                  className={`flex-1 rounded-none gap-2 ${mobileEditorTab === "generator" ? "text-[#3377AF]" : "text-[#94A3B8]"}`}
-                  onClick={() => setMobileEditorTab("generator")}
-                  style={mobileEditorTab === "generator" ? { backgroundColor: "rgba(51,119,175,0.1)" } : {}}
-                >
-                  <PanelLeft className="h-4 w-4" />
-                  Gerador
-                </Button>
-                <Button
-                  variant="ghost"
-                  className={`flex-1 rounded-none gap-2 ${mobileEditorTab === "preview" ? "text-[#3377AF]" : "text-[#94A3B8]"}`}
-                  onClick={() => setMobileEditorTab("preview")}
-                  style={mobileEditorTab === "preview" ? { backgroundColor: "rgba(51,119,175,0.1)" } : {}}
-                >
-                  <Eye className="h-4 w-4" />
-                  Preview
-                </Button>
-              </div>
-            )}
+            {/* Mobile editor toggle — Gerador / Preview */}
+            <div className="flex sm:hidden" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", backgroundColor: "#12121A" }}>
+              <Button
+                variant="ghost"
+                className={`flex-1 rounded-none gap-2 h-12 min-h-[48px] ${mobileEditorTab === "generator" ? "text-[#3377AF]" : "text-[#94A3B8]"}`}
+                onClick={() => setMobileEditorTab("generator")}
+                style={mobileEditorTab === "generator" ? { backgroundColor: "rgba(51,119,175,0.1)" } : {}}
+              >
+                <PanelLeft className="h-4 w-4" />
+                Gerador
+              </Button>
+              <Button
+                variant="ghost"
+                className={`flex-1 rounded-none gap-2 h-12 min-h-[48px] ${mobileEditorTab === "preview" ? "text-[#3377AF]" : "text-[#94A3B8]"}`}
+                onClick={() => setMobileEditorTab("preview")}
+                style={mobileEditorTab === "preview" ? { backgroundColor: "rgba(51,119,175,0.1)" } : {}}
+              >
+                <Eye className="h-4 w-4" />
+                Preview
+              </Button>
+            </div>
 
             <div className="flex flex-1 overflow-hidden">
-              <div className={`${isMobile ? (mobileEditorTab === "generator" ? "flex w-full" : "hidden") : "flex"}`}>
+              {/* Mobile: show/hide via CSS classes; Desktop: always show */}
+              <div className={`sm:flex ${mobileEditorTab === "generator" ? "flex w-full sm:w-auto" : "hidden"}`}>
                 <GeneratorSidebar
                   onGenerated={(data) => { setCarousel(data); if (isMobile) setMobileEditorTab("preview"); }}
                   onLoadCarousel={(data) => { setCarousel(data); if (isMobile) setMobileEditorTab("preview"); }}
@@ -317,7 +357,7 @@ const Index = () => {
                   currentCarousel={carousel}
                 />
               </div>
-              <div className={`${isMobile ? (mobileEditorTab === "preview" ? "flex flex-1" : "hidden") : "flex flex-1"}`}>
+              <div className={`sm:flex sm:flex-1 ${mobileEditorTab === "preview" ? "flex flex-1" : "hidden"}`}>
                 <CarouselPreview
                   slides={carousel?.slides || []}
                   carousel={carousel}
@@ -343,9 +383,10 @@ const Index = () => {
           </div>
         )}
 
-        {activeTab === "reels" && (
+        {/* Reels — display trick for persistence */}
+        <div style={{ display: activeTab === "reels" ? "flex" : "none", height: "100%" }}>
           <YouTubeClipper />
-        )}
+        </div>
 
         {activeTab === "posts" && (
           <MyPosts onEdit={handleEditCarousel} />
@@ -370,9 +411,129 @@ const Index = () => {
         {activeTab === "bot" && (
           <BotCommands />
         )}
+
+        {activeTab === "video-carousel" && (
+          <VideoToCarousel onGenerated={(data) => { setCarousel(data); setActiveTab("criar"); }} />
+        )}
+
+        {activeTab === "transcricao" && (
+          <VideoTranscriber />
+        )}
+
+        {/* ===== "MAIS" BOTTOM SHEET (mobile only) ===== */}
+        {showMoreDrawer && (
+          <>
+            {/* Backdrop with blur */}
+            <div
+              className="sm:hidden fixed inset-0 z-40"
+              style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+              onClick={() => setShowMoreDrawer(false)}
+            />
+            {/* Sheet */}
+            <div
+              className="sm:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl animate-in slide-in-from-bottom duration-200"
+              style={{
+                backgroundColor: "#12121A",
+                borderTop: "1px solid rgba(255,255,255,0.1)",
+                paddingBottom: "env(safe-area-inset-bottom, 16px)",
+              }}
+            >
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.2)" }} />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pb-3">
+                <span className="text-sm font-semibold" style={{ color: "#E2E8F0" }}>Mais opcoes</span>
+                <button
+                  onClick={() => setShowMoreDrawer(false)}
+                  className="p-2 rounded-full"
+                  style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+                >
+                  <X className="h-4 w-4" style={{ color: "#94A3B8" }} />
+                </button>
+              </div>
+
+              {/* Items */}
+              <div className="px-3 pb-4">
+                {drawerItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleDrawerItemTap(item.id)}
+                      className="w-full flex items-center gap-4 px-4 rounded-xl transition-colors"
+                      style={{
+                        height: 56,
+                        minHeight: 48,
+                        backgroundColor: isActive ? "rgba(51,119,175,0.12)" : "transparent",
+                      }}
+                    >
+                      <Icon
+                        className="h-5 w-5 shrink-0"
+                        style={{ color: isActive ? "#3377AF" : "#94A3B8" }}
+                      />
+                      <span
+                        className="text-sm font-medium"
+                        style={{ color: isActive ? "#3377AF" : "#E2E8F0" }}
+                      >
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Publish button (floating) */}
+      {/* ===== MOBILE BOTTOM NAV ===== */}
+      <nav
+        className="sm:hidden flex items-stretch relative z-30"
+        style={{
+          height: 56,
+          minHeight: 56,
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          backgroundColor: "#0A0A0F",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}
+      >
+        {bottomNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = item.id === "mais"
+            ? (showMoreDrawer || isMoreTabActive)
+            : activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleBottomNavTap(item.id)}
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-all relative"
+              style={{
+                minWidth: 48,
+                minHeight: 48,
+                color: isActive ? "#3377AF" : "#64748B",
+              }}
+            >
+              {/* Active dot indicator */}
+              {isActive && (
+                <div
+                  className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full"
+                  style={{ width: 12, height: 3, backgroundColor: "#3377AF" }}
+                />
+              )}
+              <Icon className="h-6 w-6" strokeWidth={isActive ? 2.5 : 1.5} />
+              <span className="font-semibold" style={{ fontSize: 10, lineHeight: "12px" }}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* ===== PUBLISH BUTTON (floating) ===== */}
       {activeTab === "criar" && (
         <PublishButton
           carousel={carousel}
@@ -380,7 +541,7 @@ const Index = () => {
         />
       )}
 
-      {/* Instagram Publisher modal */}
+      {/* ===== INSTAGRAM PUBLISHER MODAL ===== */}
       {carousel && (
         <InstagramPublisher
           carousel={carousel}

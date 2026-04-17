@@ -1,698 +1,541 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Loader2, Search, Play, Scissors, Type, Download,
-  Film, Clock, Move, AlignVerticalSpaceAround, Palette,
-  CheckCircle2, Youtube, MonitorPlay, Smartphone, Square,
+  Loader2, Search, Scissors, Type, Download, Zap, Filter,
+  Film, Clock, Trash2, Plus, ArrowLeft,
+  Youtube, Smartphone, Square, MonitorPlay,
+  ExternalLink, PlayCircle, RefreshCw,
 } from "lucide-react";
 
-interface YouTubeClipperProps {
-  onClipCreated?: (clipConfig: any) => void;
+// ===== Types =====
+
+interface SavedClip {
+  id: string;
+  youtube_url: string;
+  video_title: string;
+  thumbnail_url: string;
+  start_time: number;
+  end_time: number;
+  format: string;
+  crop_position: string;
+  text_overlay: any;
+  quality: string;
+  status: string;
+  output_url: string | null;
+  created_at: string;
 }
 
-interface VideoInfo {
-  title: string;
-  thumbnail: string;
-  author: string;
-}
+// ===== Helpers =====
 
 const YOUTUBE_REGEX = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]{11})(?:\S*)?$/;
 
-function parseTimeToSeconds(time: string): number {
+function parseTime(time: string): number {
   const parts = time.split(":").map(Number);
   if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0);
-  if (parts.length === 1) return parts[0] || 0;
-  return 0;
+  return parts[0] || 0;
 }
 
-function formatSeconds(s: number): string {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+function fmtSec(s: number): string {
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 }
 
-export function YouTubeClipper({ onClipCreated }: YouTubeClipperProps) {
+function timeAgo(d: string): string {
+  const diff = Date.now() - new Date(d).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "agora";
+  if (m < 60) return `${m}min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+const STATUS: Record<string, { bg: string; color: string; label: string }> = {
+  pending: { bg: "rgba(251,191,36,0.15)", color: "#fbbf24", label: "Pendente" },
+  processing: { bg: "rgba(51,119,175,0.15)", color: "#3377AF", label: "Processando" },
+  done: { bg: "rgba(131,247,20,0.15)", color: "#83F714", label: "Pronto" },
+  error: { bg: "rgba(239,68,68,0.15)", color: "#ef4444", label: "Erro" },
+};
+
+// ===== Component =====
+
+export function YouTubeClipper() {
+  const [view, setView] = useState<"library" | "new" | "auto">("library");
+  const [clips, setClips] = useState<SavedClip[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
+
+  // New clip form
   const [url, setUrl] = useState("");
-  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [videoTitle, setVideoTitle] = useState("");
+  const [videoThumb, setVideoThumb] = useState("");
+  const [videoId, setVideoId] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  // Clip config
   const [startTime, setStartTime] = useState("00:00");
   const [endTime, setEndTime] = useState("00:15");
   const [format, setFormat] = useState<"reels" | "stories" | "feed">("reels");
-  const [cropPosition, setCropPosition] = useState<"top" | "center" | "bottom">("center");
-
-  // Text overlay
-  const [textEnabled, setTextEnabled] = useState(false);
-  const [overlayText, setOverlayText] = useState("");
-  const [textPosition, setTextPosition] = useState<"top" | "center" | "bottom">("bottom");
-  const [fontSize, setFontSize] = useState(24);
-  const [textColor, setTextColor] = useState("#ffffff");
-  const [bgColor, setBgColor] = useState("#000000");
-  const [bgOpacity, setBgOpacity] = useState(70);
-
-  // Export
   const [quality, setQuality] = useState<"720p" | "1080p">("1080p");
 
-  // Saved clips history
-  const [savedClips, setSavedClips] = useState<any[]>([]);
+  // Auto clipper
+  const [autoUrl, setAutoUrl] = useState("");
+  const [autoClips, setAutoClips] = useState(5);
+  const [autoLength, setAutoLength] = useState(15);
+  const [autoSubs, setAutoSubs] = useState(true);
+  const [autoWatermark, setAutoWatermark] = useState("@orlandofastpass");
+  const [autoProcessing, setAutoProcessing] = useState(false);
 
-  const extractVideoId = (videoUrl: string): string | null => {
-    const match = videoUrl.match(YOUTUBE_REGEX);
-    return match ? match[1] : null;
+  // ===== Data loading =====
+
+  const loadClips = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("video_clips" as any).select("*")
+        .order("created_at", { ascending: false }).limit(50);
+      if (error) throw error;
+      if (data) setClips(data as any);
+    } catch {
+      setClips(JSON.parse(localStorage.getItem("video_clips") || "[]"));
+    } finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    loadClips();
+    const iv = setInterval(loadClips, 8000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const filtered = clips.filter(c => {
+    const matchSearch = !search || (c.video_title || "").toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFilter === "todos" || c.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  // ===== Actions =====
 
   const analyzeVideo = async () => {
-    const videoId = extractVideoId(url.trim());
-    if (!videoId) {
-      toast.error("URL invalida. Use um link do YouTube valido.");
-      return;
-    }
-    setLoading(true);
+    const vid = url.trim().match(YOUTUBE_REGEX)?.[1];
+    if (!vid) { toast.error("URL invalida"); return; }
+    setAnalyzing(true);
     try {
-      const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-      if (!res.ok) throw new Error("Video nao encontrado");
+      const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`);
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      setVideoInfo({
-        title: data.title,
-        thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-        author: data.author_name,
-      });
+      setVideoId(vid);
+      setVideoTitle(data.title);
+      setVideoThumb(`https://img.youtube.com/vi/${vid}/hqdefault.jpg`);
       toast.success("Video encontrado!");
-    } catch {
-      toast.error("Nao foi possivel encontrar o video. Verifique a URL.");
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error("Video nao encontrado"); }
+    finally { setAnalyzing(false); }
   };
-
-  const clipDuration = () => {
-    const start = parseTimeToSeconds(startTime);
-    const end = parseTimeToSeconds(endTime);
-    return Math.max(0, end - start);
-  };
-
-  const maxDuration = format === "stories" ? 15 : 60;
 
   const saveClip = async () => {
-    if (!videoInfo) {
-      toast.error("Analise um video primeiro.");
-      return;
-    }
-
-    const duration = clipDuration();
-    if (duration <= 0) {
-      toast.error("O tempo final deve ser maior que o inicial.");
-      return;
-    }
-    if (duration > maxDuration) {
-      toast.error(`Duracao maxima para ${format === "stories" ? "Stories" : "Reels"}: ${maxDuration}s`);
-      return;
-    }
-
+    if (!videoId) return;
+    const dur = parseTime(endTime) - parseTime(startTime);
+    if (dur <= 0) { toast.error("Tempo final deve ser maior"); return; }
     setSaving(true);
     try {
       const clipData = {
-        youtube_url: url.trim(),
-        video_title: videoInfo.title,
-        thumbnail_url: videoInfo.thumbnail,
-        start_time: parseTimeToSeconds(startTime),
-        end_time: parseTimeToSeconds(endTime),
-        format,
-        crop_position: cropPosition,
-        text_overlay: textEnabled
-          ? { text: overlayText, position: textPosition, fontSize, textColor, bgColor, bgOpacity }
-          : null,
-        quality,
-        status: "pending",
+        youtube_url: url.trim(), video_title: videoTitle,
+        thumbnail_url: videoThumb, start_time: parseTime(startTime),
+        end_time: parseTime(endTime), format, crop_position: "center",
+        text_overlay: null, quality, status: "pending",
       };
-
-      let saved: any = clipData;
       try {
-        const { data, error } = await supabase
-          .from("video_clips" as any)
-          .insert(clipData as any)
-          .select()
-          .single();
+        const { error } = await supabase.from("video_clips" as any).insert(clipData as any);
         if (error) throw error;
-        saved = data;
       } catch {
-        // Fallback: save to localStorage if table doesn't exist yet
-        saved = { ...clipData, id: crypto.randomUUID(), created_at: new Date().toISOString() };
+        const saved = { ...clipData, id: crypto.randomUUID(), created_at: new Date().toISOString() };
         const existing = JSON.parse(localStorage.getItem("video_clips") || "[]");
-        existing.unshift(saved);
-        localStorage.setItem("video_clips", JSON.stringify(existing));
+        existing.unshift(saved); localStorage.setItem("video_clips", JSON.stringify(existing));
       }
-
-      toast.success("Configuracao salva! O clipe sera processado em breve.");
-      setSavedClips((prev) => [saved, ...prev]);
-      onClipCreated?.(saved);
-    } catch (e: any) {
-      console.error(e);
-      toast.error("Erro ao salvar: " + (e.message || "Tente novamente"));
-    } finally {
-      setSaving(false);
-    }
+      toast.success("Clipe enviado para processamento!");
+      setView("library"); loadClips();
+      setUrl(""); setVideoId(""); setVideoTitle(""); setVideoThumb("");
+    } catch { toast.error("Erro ao salvar"); }
+    finally { setSaving(false); }
   };
 
-  const formatIcons = {
-    reels: <Smartphone className="h-4 w-4" />,
-    stories: <MonitorPlay className="h-4 w-4" />,
-    feed: <Square className="h-4 w-4" />,
+  const startAutoClipper = async () => {
+    const vid = autoUrl.trim().match(YOUTUBE_REGEX)?.[1];
+    if (!vid) { toast.error("URL invalida"); return; }
+    setAutoProcessing(true);
+    try {
+      await supabase.from("video_clips" as any).insert({
+        youtube_url: autoUrl.trim(), video_title: "Auto-Clip (processando...)",
+        thumbnail_url: `https://img.youtube.com/vi/${vid}/hqdefault.jpg`,
+        start_time: 0, end_time: autoLength, format: "reels", crop_position: "center",
+        text_overlay: { auto_clipper: true, max_clips: autoClips, clip_length: autoLength, add_subtitles: autoSubs, watermark: autoWatermark || null },
+        quality: "1080p", status: "pending",
+      } as any);
+      toast.success(`Auto-Clipper vai gerar ate ${autoClips} clipes!`);
+      setView("library"); loadClips();
+    } catch { toast.error("Erro"); }
+    finally { setAutoProcessing(false); }
   };
 
-  const formatLabels = {
-    reels: "Reels (9:16)",
-    stories: "Stories (9:16)",
-    feed: "Feed (1:1)",
+  const deleteClip = async (id: string) => {
+    try { await supabase.from("video_clips" as any).delete().eq("id", id); } catch {}
+    setClips(prev => prev.filter(c => c.id !== id));
+    toast.success("Removido");
   };
 
-  return (
-    <div className="flex flex-col md:flex-row h-full w-full overflow-hidden" style={{ backgroundColor: "#0A0A0F" }}>
-      {/* Left Panel — Controls */}
-      <div className="w-full md:w-96 flex flex-col h-full" style={{ borderRight: "1px solid rgba(255,255,255,0.08)", backgroundColor: "#0A0A0F" }}>
-        <ScrollArea className="flex-1">
-          <div className="p-5 space-y-5">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-1">
-              <div className="p-2 rounded-lg" style={{ backgroundColor: "rgba(255,0,0,0.1)" }}>
-                <Youtube className="h-5 w-5 text-red-500" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-white">YouTube Clipper</h2>
-                <p className="text-[11px]" style={{ color: "#94A3B8" }}>Crie Reels e Stories de videos do YouTube</p>
-              </div>
+  // ===== RENDER =====
+
+  // --- LIBRARY VIEW ---
+  if (view === "library") {
+    return (
+      <div className="h-full flex flex-col" style={{ backgroundColor: "#0A0A0F" }}>
+        {/* Header */}
+        <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Youtube className="h-5 w-5 text-red-500" /> Meus Reels
+            </h2>
+            <p className="text-xs" style={{ color: "#94A3B8" }}>{clips.length} clipes | {clips.filter(c => c.status === "done").length} prontos</p>
+          </div>
+          <div className="flex gap-2 items-center flex-wrap">
+            <div className="relative flex-1 sm:flex-initial">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "#94A3B8" }} />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..."
+                className="pl-8 h-9 text-xs w-full sm:w-40 text-white" style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)" }} />
             </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 text-xs w-28" style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)" }}>
+                <Filter className="h-3 w-3 mr-1" /><SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="processing">Processando</SelectItem>
+                <SelectItem value="done">Pronto</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" onClick={loadClips} variant="outline" className="h-9" style={{ borderColor: "rgba(255,255,255,0.08)", backgroundColor: "#12121A" }}>
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
 
-            {/* URL Input */}
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: "#94A3B8" }}>
-                <Search className="h-3 w-3 inline mr-1.5" />
-                URL do YouTube
-              </label>
+        {/* Action buttons */}
+        <div className="px-4 sm:px-6 py-3 flex gap-2">
+          <button onClick={() => setView("new")}
+            className="flex-1 py-3 sm:py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+            style={{ backgroundColor: "#3377AF", color: "white" }}>
+            <Scissors className="h-4 w-4" /> Novo Clipe
+          </button>
+          <button onClick={() => setView("auto")}
+            className="flex-1 py-3 sm:py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+            style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)", color: "white" }}>
+            <Zap className="h-4 w-4" /> Auto IA
+          </button>
+        </div>
+
+        {/* Grid */}
+        <ScrollArea className="flex-1 px-4 sm:px-6 pb-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin" style={{ color: "#3377AF" }} />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: "rgba(255,0,0,0.08)" }}>
+                <Youtube className="h-8 w-8 text-red-500/30" />
+              </div>
+              <h3 className="text-base font-semibold text-white mb-1">
+                {search || statusFilter !== "todos" ? "Nenhum clipe encontrado" : "Nenhum clipe ainda"}
+              </h3>
+              <p className="text-xs mb-4" style={{ color: "#94A3B8" }}>
+                {search || statusFilter !== "todos" ? "Altere os filtros" : "Crie seu primeiro clipe"}
+              </p>
+              {!search && statusFilter === "todos" && (
+                <Button onClick={() => setView("new")} style={{ backgroundColor: "#3377AF" }}>
+                  <Plus className="h-4 w-4 mr-2" /> Criar Clipe
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {filtered.map((clip) => {
+                const st = STATUS[clip.status] || STATUS.pending;
+                const vid = clip.youtube_url.match(YOUTUBE_REGEX)?.[1];
+                return (
+                  <div key={clip.id}
+                    className="rounded-xl overflow-hidden group transition-all hover:scale-[1.01] active:scale-[0.99]"
+                    style={{ backgroundColor: "#12121A", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    {/* Thumbnail */}
+                    <div className="relative h-36 sm:h-40">
+                      <img src={clip.thumbnail_url} alt={clip.video_title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).src = (clip.thumbnail_url || "").replace("maxresdefault", "hqdefault"); }} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                      {/* Status */}
+                      <div className="absolute top-2 left-2 px-2 py-1 rounded-lg text-[10px] font-semibold" style={{ backgroundColor: st.bg, color: st.color }}>
+                        {clip.status === "processing" && <Loader2 className="h-3 w-3 inline mr-1 animate-spin" />}
+                        {st.label}
+                      </div>
+                      {/* Duration */}
+                      <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-mono text-white" style={{ backgroundColor: "rgba(0,0,0,0.7)" }}>
+                        {fmtSec(clip.end_time - clip.start_time)}
+                      </div>
+                      {/* Play overlay */}
+                      {vid && (
+                        <a href={`https://youtube.com/watch?v=${vid}&t=${clip.start_time}`} target="_blank" rel="noopener noreferrer"
+                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.2)", backdropFilter: "blur(4px)" }}>
+                            <PlayCircle className="h-6 w-6 text-white" />
+                          </div>
+                        </a>
+                      )}
+                      {/* Format badge */}
+                      <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-semibold text-white" style={{ backgroundColor: "rgba(51,119,175,0.8)" }}>
+                        {clip.format === "reels" ? "REELS" : clip.format === "stories" ? "STORIES" : "FEED"} • {clip.quality}
+                      </div>
+                      {/* Time range */}
+                      <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-mono text-white" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+                        {fmtSec(clip.start_time)} - {fmtSec(clip.end_time)}
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="p-3">
+                      <p className="text-sm font-medium text-white truncate mb-2">{clip.video_title}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px]" style={{ color: "#94A3B8" }}>{clip.created_at ? timeAgo(clip.created_at) : ""}</span>
+                        <div className="flex gap-1.5">
+                          {clip.status === "done" && clip.output_url && (
+                            <a href={clip.output_url} download target="_blank" rel="noopener noreferrer"
+                              className="h-8 px-3 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all active:scale-95"
+                              style={{ backgroundColor: "rgba(131,247,20,0.15)", color: "#83F714" }}>
+                              <Download className="h-3.5 w-3.5" /> Baixar
+                            </a>
+                          )}
+                          {vid && (
+                            <a href={`https://youtube.com/watch?v=${vid}&t=${clip.start_time}`} target="_blank" rel="noopener noreferrer"
+                              className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
+                              <ExternalLink className="h-3.5 w-3.5" style={{ color: "#94A3B8" }} />
+                            </a>
+                          )}
+                          <button onClick={() => deleteClip(clip.id)}
+                            className="h-8 w-8 rounded-lg flex items-center justify-center transition-all active:scale-90" style={{ backgroundColor: "rgba(239,68,68,0.08)" }}>
+                            <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </div>
+    );
+  }
+
+  // --- NEW CLIP VIEW ---
+  if (view === "new") {
+    const maxDur = format === "stories" ? 15 : 60;
+    const dur = parseTime(endTime) - parseTime(startTime);
+    return (
+      <div className="h-full flex flex-col" style={{ backgroundColor: "#0A0A0F" }}>
+        <div className="px-4 sm:px-6 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <button onClick={() => setView("library")} className="p-2 rounded-lg active:scale-90 transition-all" style={{ backgroundColor: "#12121A" }}>
+            <ArrowLeft className="h-4 w-4 text-white" />
+          </button>
+          <div>
+            <h2 className="text-base font-bold text-white">Novo Clipe</h2>
+            <p className="text-[11px]" style={{ color: "#94A3B8" }}>Recorte um trecho de um video do YouTube</p>
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-5">
+            {/* URL */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#94A3B8" }}>URL do YouTube</label>
               <div className="flex gap-2">
-                <Input
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=..."
-                  className="text-sm flex-1"
-                  style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }}
-                  onKeyDown={(e) => e.key === "Enter" && analyzeVideo()}
-                />
-                <Button
-                  onClick={analyzeVideo}
-                  disabled={loading || !url.trim()}
-                  className="shrink-0"
-                  style={{ backgroundColor: "#3377AF", color: "white" }}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..."
+                  className="text-sm flex-1 h-11" style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }}
+                  onKeyDown={(e) => e.key === "Enter" && analyzeVideo()} />
+                <Button onClick={analyzeVideo} disabled={analyzing || !url.trim()} className="h-11 px-4" style={{ backgroundColor: "#3377AF" }}>
+                  {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
 
-            {/* Video Info */}
-            {videoInfo && (
-              <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#12121A", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <div className="relative">
-                  <img
-                    src={videoInfo.thumbnail}
-                    alt={videoInfo.title}
-                    className="w-full h-40 object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = videoInfo.thumbnail.replace("maxresdefault", "hqdefault"); }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <p className="text-white text-sm font-semibold line-clamp-2">{videoInfo.title}</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: "#94A3B8" }}>{videoInfo.author}</p>
+            {/* Video preview */}
+            {videoId && (
+              <>
+                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ position: "relative", paddingBottom: "56.25%" }}>
+                    <iframe src={`https://www.youtube.com/embed/${videoId}?start=${parseTime(startTime)}&end=${parseTime(endTime)}&rel=0`}
+                      title={videoTitle} allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
                   </div>
                 </div>
-              </div>
-            )}
+                <p className="text-sm font-medium text-white">{videoTitle}</p>
 
-            {/* Separator */}
-            {videoInfo && (
-              <>
-                <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }} />
-
-                {/* Clip Time */}
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider mb-3 block" style={{ color: "#94A3B8" }}>
-                    <Scissors className="h-3 w-3 inline mr-1.5" />
-                    Recorte do Clipe
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <span className="text-[10px] block mb-1" style={{ color: "#94A3B8" }}>Inicio (MM:SS)</span>
-                      <Input
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        placeholder="00:00"
-                        className="text-sm text-center font-mono"
-                        style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }}
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] block mb-1" style={{ color: "#94A3B8" }}>Fim (MM:SS)</span>
-                      <Input
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        placeholder="00:15"
-                        className="text-sm text-center font-mono"
-                        style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }}
-                      />
-                    </div>
+                {/* Time */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] block mb-1.5" style={{ color: "#94A3B8" }}>Inicio</label>
+                    <Input value={startTime} onChange={(e) => setStartTime(e.target.value)}
+                      className="text-sm text-center font-mono h-11" style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }} />
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3 w-3" style={{ color: "#94A3B8" }} />
-                      <span className="text-xs font-mono" style={{ color: clipDuration() > maxDuration ? "#ef4444" : "#83F714" }}>
-                        {formatSeconds(clipDuration())}
-                      </span>
-                    </div>
-                    <span className="text-[10px]" style={{ color: "#94A3B8" }}>
-                      Max: {maxDuration}s ({format === "stories" ? "Stories" : "Reels"})
-                    </span>
+                  <div>
+                    <label className="text-[11px] block mb-1.5" style={{ color: "#94A3B8" }}>Fim</label>
+                    <Input value={endTime} onChange={(e) => setEndTime(e.target.value)}
+                      className="text-sm text-center font-mono h-11" style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }} />
                   </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono" style={{ color: dur > maxDur ? "#ef4444" : "#83F714" }}>{fmtSec(dur)}</span>
+                  <span className="text-[10px]" style={{ color: "#94A3B8" }}>Max: {maxDur}s</span>
                 </div>
 
                 {/* Format */}
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: "#94A3B8" }}>
-                    <Film className="h-3 w-3 inline mr-1.5" />
-                    Formato
-                  </label>
+                  <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: "#94A3B8" }}>Formato</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {(["reels", "stories", "feed"] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setFormat(f)}
-                        className="flex flex-col items-center gap-1.5 py-3 rounded-lg text-xs font-medium transition-all"
-                        style={{
-                          backgroundColor: format === f ? "rgba(51,119,175,0.15)" : "#12121A",
-                          color: format === f ? "#3377AF" : "#94A3B8",
-                          border: `1px solid ${format === f ? "#3377AF" : "rgba(255,255,255,0.08)"}`,
-                        }}
-                      >
-                        {formatIcons[f]}
-                        {formatLabels[f]}
+                    {([
+                      { id: "reels" as const, icon: Smartphone, label: "Reels 9:16" },
+                      { id: "stories" as const, icon: MonitorPlay, label: "Stories 9:16" },
+                      { id: "feed" as const, icon: Square, label: "Feed 1:1" },
+                    ]).map(f => (
+                      <button key={f.id} onClick={() => setFormat(f.id)}
+                        className="flex flex-col items-center gap-1.5 py-3.5 rounded-xl text-xs font-medium transition-all active:scale-95"
+                        style={{ backgroundColor: format === f.id ? "rgba(51,119,175,0.15)" : "#12121A", color: format === f.id ? "#3377AF" : "#94A3B8",
+                          border: `2px solid ${format === f.id ? "#3377AF" : "rgba(255,255,255,0.06)"}` }}>
+                        <f.icon className="h-5 w-5" />{f.label}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Crop Position */}
+                {/* Quality */}
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: "#94A3B8" }}>
-                    <Move className="h-3 w-3 inline mr-1.5" />
-                    Posicao do Crop
-                  </label>
-                  <div className="flex gap-2">
-                    {(["top", "center", "bottom"] as const).map((pos) => (
-                      <button
-                        key={pos}
-                        onClick={() => setCropPosition(pos)}
-                        className="flex-1 py-2 rounded-lg text-xs font-medium transition-all capitalize"
-                        style={{
-                          backgroundColor: cropPosition === pos ? "#3377AF" : "#12121A",
-                          color: cropPosition === pos ? "white" : "#94A3B8",
-                          border: `1px solid ${cropPosition === pos ? "#3377AF" : "rgba(255,255,255,0.08)"}`,
-                        }}
-                      >
-                        {pos === "top" ? "Topo" : pos === "center" ? "Centro" : "Base"}
+                  <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: "#94A3B8" }}>Qualidade</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["720p", "1080p"] as const).map(q => (
+                      <button key={q} onClick={() => setQuality(q)}
+                        className="py-3 rounded-xl text-sm font-bold transition-all active:scale-95"
+                        style={{ backgroundColor: quality === q ? "#3377AF" : "#12121A", color: quality === q ? "white" : "#94A3B8",
+                          border: `2px solid ${quality === q ? "#3377AF" : "rgba(255,255,255,0.06)"}` }}>
+                        {q}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Separator */}
-                <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }} />
-
-                {/* Text Overlay */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#94A3B8" }}>
-                      <Type className="h-3 w-3 inline mr-1.5" />
-                      Texto Overlay
-                    </label>
-                    <Switch checked={textEnabled} onCheckedChange={setTextEnabled} />
-                  </div>
-
-                  {textEnabled && (
-                    <div className="space-y-3 pl-1">
-                      <Input
-                        value={overlayText}
-                        onChange={(e) => setOverlayText(e.target.value)}
-                        placeholder="Texto sobre o video..."
-                        className="text-sm"
-                        style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }}
-                      />
-
-                      {/* Text Position */}
-                      <div>
-                        <span className="text-[10px] block mb-1.5" style={{ color: "#94A3B8" }}>Posicao</span>
-                        <div className="flex gap-2">
-                          {(["top", "center", "bottom"] as const).map((pos) => (
-                            <button
-                              key={pos}
-                              onClick={() => setTextPosition(pos)}
-                              className="flex-1 py-1.5 rounded text-[11px] font-medium transition-all"
-                              style={{
-                                backgroundColor: textPosition === pos ? "rgba(131,247,20,0.15)" : "#12121A",
-                                color: textPosition === pos ? "#83F714" : "#94A3B8",
-                                border: `1px solid ${textPosition === pos ? "#83F714" : "rgba(255,255,255,0.08)"}`,
-                              }}
-                            >
-                              {pos === "top" ? "Topo" : pos === "center" ? "Centro" : "Base"}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Font Size */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px]" style={{ color: "#94A3B8" }}>Tamanho da fonte</span>
-                          <span className="text-[10px] font-mono" style={{ color: "#83F714" }}>{fontSize}px</span>
-                        </div>
-                        <Slider
-                          value={[fontSize]}
-                          onValueChange={([v]) => setFontSize(v)}
-                          min={12}
-                          max={72}
-                          step={1}
-                          className="w-full"
-                        />
-                      </div>
-
-                      {/* Colors */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <span className="text-[10px] block mb-1.5" style={{ color: "#94A3B8" }}>Cor do texto</span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={textColor}
-                              onChange={(e) => setTextColor(e.target.value)}
-                              className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                            />
-                            <span className="text-[10px] font-mono text-white">{textColor}</span>
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-[10px] block mb-1.5" style={{ color: "#94A3B8" }}>Fundo do texto</span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={bgColor}
-                              onChange={(e) => setBgColor(e.target.value)}
-                              className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                            />
-                            <span className="text-[10px] font-mono text-white">{bgColor}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* BG Opacity */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px]" style={{ color: "#94A3B8" }}>Opacidade do fundo</span>
-                          <span className="text-[10px] font-mono" style={{ color: "#83F714" }}>{bgOpacity}%</span>
-                        </div>
-                        <Slider
-                          value={[bgOpacity]}
-                          onValueChange={([v]) => setBgOpacity(v)}
-                          min={0}
-                          max={100}
-                          step={5}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Separator */}
-                <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }} />
-
-                {/* Export Settings */}
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: "#94A3B8" }}>
-                    <Download className="h-3 w-3 inline mr-1.5" />
-                    Exportar
-                  </label>
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-[10px] block mb-1.5" style={{ color: "#94A3B8" }}>Qualidade</span>
-                      <div className="flex gap-2">
-                        {(["720p", "1080p"] as const).map((q) => (
-                          <button
-                            key={q}
-                            onClick={() => setQuality(q)}
-                            className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
-                            style={{
-                              backgroundColor: quality === q ? "#3377AF" : "#12121A",
-                              color: quality === q ? "white" : "#94A3B8",
-                              border: `1px solid ${quality === q ? "#3377AF" : "rgba(255,255,255,0.08)"}`,
-                            }}
-                          >
-                            {q}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: "rgba(51,119,175,0.08)", border: "1px solid rgba(51,119,175,0.15)" }}>
-                      <Film className="h-3.5 w-3.5 shrink-0" style={{ color: "#3377AF" }} />
-                      <span className="text-[11px]" style={{ color: "#94A3B8" }}>Formato de saida: <strong className="text-white">MP4</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Generate Button */}
-                <button
-                  onClick={saveClip}
-                  disabled={saving || clipDuration() <= 0 || clipDuration() > maxDuration}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    background: saving ? "#12121A" : "linear-gradient(135deg, #3377AF 0%, #83F714 100%)",
-                    color: saving ? "#94A3B8" : "#0A0A0F",
-                    border: saving ? "1px solid rgba(255,255,255,0.08)" : "none",
-                  }}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Scissors className="h-4 w-4" />
-                      Gerar Clipe
-                    </>
-                  )}
+                {/* Submit */}
+                <button onClick={saveClip} disabled={saving || dur <= 0 || dur > maxDur}
+                  className="w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                  style={{ background: saving ? "#12121A" : "linear-gradient(135deg, #3377AF, #83F714)", color: saving ? "#94A3B8" : "#0A0A0F" }}>
+                  {saving ? <><Loader2 className="h-5 w-5 animate-spin" /> Enviando...</> : <><Scissors className="h-5 w-5" /> Gerar Clipe</>}
                 </button>
               </>
             )}
           </div>
         </ScrollArea>
       </div>
+    );
+  }
 
-      {/* Right Panel — Preview */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-auto" style={{ backgroundColor: "#0A0A0F" }}>
-        {!videoInfo ? (
-          <div className="text-center max-w-md">
-            <div
-              className="w-24 h-24 rounded-2xl mx-auto mb-6 flex items-center justify-center"
-              style={{ backgroundColor: "rgba(255,0,0,0.08)", border: "1px solid rgba(255,0,0,0.15)" }}
-            >
-              <Youtube className="h-12 w-12 text-red-500/50" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Crie Clipes Incriveis</h3>
-            <p className="text-sm mb-6" style={{ color: "#94A3B8" }}>
-              Cole a URL de um video do YouTube e transforme trechos em Reels, Stories ou posts para o Feed.
-            </p>
-            <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
-              {[
-                { icon: <Smartphone className="h-5 w-5" />, label: "Reels" },
-                { icon: <MonitorPlay className="h-5 w-5" />, label: "Stories" },
-                { icon: <Square className="h-5 w-5" />, label: "Feed" },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="flex flex-col items-center gap-2 py-4 rounded-xl"
-                  style={{ backgroundColor: "#12121A", border: "1px solid rgba(255,255,255,0.05)" }}
-                >
-                  <div style={{ color: "#3377AF" }}>{item.icon}</div>
-                  <span className="text-[11px] font-medium" style={{ color: "#94A3B8" }}>{item.label}</span>
-                </div>
+  // --- AUTO IA VIEW ---
+  return (
+    <div className="h-full flex flex-col" style={{ backgroundColor: "#0A0A0F" }}>
+      <div className="px-4 sm:px-6 py-3 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <button onClick={() => setView("library")} className="p-2 rounded-lg active:scale-90 transition-all" style={{ backgroundColor: "#12121A" }}>
+          <ArrowLeft className="h-4 w-4 text-white" />
+        </button>
+        <div>
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <Zap className="h-4 w-4" style={{ color: "#f59e0b" }} /> Auto-Clipper IA
+          </h2>
+          <p className="text-[11px]" style={{ color: "#94A3B8" }}>A IA analisa e gera varios clipes automaticamente</p>
+        </div>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-5">
+          {/* URL */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#94A3B8" }}>URL do YouTube</label>
+            <Input value={autoUrl} onChange={(e) => setAutoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..."
+              className="text-sm h-11" style={{ backgroundColor: "#12121A", borderColor: "rgba(255,255,255,0.08)", color: "white" }} />
+          </div>
+
+          {/* Clips count */}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: "#94A3B8" }}>Quantidade de clipes</label>
+            <div className="grid grid-cols-4 gap-2">
+              {[3, 5, 7, 10].map(n => (
+                <button key={n} onClick={() => setAutoClips(n)}
+                  className="py-3.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+                  style={{ backgroundColor: autoClips === n ? "#f59e0b" : "#12121A", color: autoClips === n ? "#0A0A0F" : "#94A3B8",
+                    border: `2px solid ${autoClips === n ? "#f59e0b" : "rgba(255,255,255,0.06)"}` }}>
+                  {n}
+                </button>
               ))}
             </div>
           </div>
-        ) : (
-          <div className="w-full max-w-lg">
-            {/* Preview Mockup */}
-            <div className="relative mx-auto" style={{
-              width: format === "feed" ? 360 : 270,
-              aspectRatio: format === "feed" ? "1/1" : "9/16",
-              maxHeight: "70vh",
-            }}>
-              {/* Phone frame */}
-              <div
-                className="w-full h-full rounded-3xl overflow-hidden relative"
-                style={{
-                  backgroundColor: "#12121A",
-                  border: "3px solid rgba(255,255,255,0.1)",
-                  boxShadow: "0 0 60px rgba(51,119,175,0.15), 0 0 120px rgba(131,247,20,0.05)",
-                }}
-              >
-                {/* Thumbnail as background */}
-                <img
-                  src={videoInfo.thumbnail}
-                  alt="Preview"
-                  className="absolute inset-0 w-full h-full object-cover"
-                  style={{
-                    objectPosition: cropPosition === "top" ? "top" : cropPosition === "bottom" ? "bottom" : "center",
-                  }}
-                  onError={(e) => { (e.target as HTMLImageElement).src = videoInfo.thumbnail.replace("maxresdefault", "hqdefault"); }}
-                />
 
-                {/* Dark overlay */}
-                <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.2)" }} />
-
-                {/* Play button */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-sm"
-                    style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
-                  >
-                    <Play className="h-8 w-8 text-white ml-1" />
-                  </div>
-                </div>
-
-                {/* Time badge */}
-                <div
-                  className="absolute top-3 right-3 px-2 py-1 rounded-md backdrop-blur-sm flex items-center gap-1"
-                  style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-                >
-                  <Clock className="h-3 w-3 text-white" />
-                  <span className="text-[10px] font-mono text-white">{formatSeconds(clipDuration())}</span>
-                </div>
-
-                {/* Format badge */}
-                <div
-                  className="absolute top-3 left-3 px-2 py-1 rounded-md backdrop-blur-sm"
-                  style={{ backgroundColor: "rgba(51,119,175,0.8)" }}
-                >
-                  <span className="text-[10px] font-semibold text-white">{formatLabels[format]}</span>
-                </div>
-
-                {/* Text overlay preview */}
-                {textEnabled && overlayText && (
-                  <div
-                    className="absolute left-3 right-3 flex"
-                    style={{
-                      top: textPosition === "top" ? "3rem" : textPosition === "center" ? "50%" : undefined,
-                      bottom: textPosition === "bottom" ? "3rem" : undefined,
-                      transform: textPosition === "center" ? "translateY(-50%)" : undefined,
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div
-                      className="px-3 py-2 rounded-lg max-w-full"
-                      style={{
-                        backgroundColor: `${bgColor}${Math.round(bgOpacity * 2.55).toString(16).padStart(2, "0")}`,
-                      }}
-                    >
-                      <p
-                        className="text-center font-semibold break-words"
-                        style={{
-                          color: textColor,
-                          fontSize: `${Math.max(10, fontSize * 0.5)}px`,
-                        }}
-                      >
-                        {overlayText}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Crop indicator lines */}
-                {cropPosition !== "center" && (
-                  <>
-                    <div
-                      className="absolute left-0 right-0 border-t-2 border-dashed"
-                      style={{
-                        top: cropPosition === "top" ? "0" : "auto",
-                        bottom: cropPosition === "bottom" ? "0" : "auto",
-                        borderColor: "rgba(131,247,20,0.4)",
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-
-              {/* Quality indicator */}
-              <div className="flex items-center justify-center gap-2 mt-3">
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(131,247,20,0.1)", color: "#83F714" }}>
-                  {quality}
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(51,119,175,0.1)", color: "#3377AF" }}>
-                  MP4
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(255,255,255,0.05)", color: "#94A3B8" }}>
-                  {formatSeconds(parseTimeToSeconds(startTime))} - {formatSeconds(parseTimeToSeconds(endTime))}
-                </span>
-              </div>
+          {/* Duration */}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: "#94A3B8" }}>Duracao de cada clipe</label>
+            <div className="grid grid-cols-4 gap-2">
+              {[10, 15, 30, 60].map(n => (
+                <button key={n} onClick={() => setAutoLength(n)}
+                  className="py-3.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+                  style={{ backgroundColor: autoLength === n ? "#f59e0b" : "#12121A", color: autoLength === n ? "#0A0A0F" : "#94A3B8",
+                    border: `2px solid ${autoLength === n ? "#f59e0b" : "rgba(255,255,255,0.06)"}` }}>
+                  {n}s
+                </button>
+              ))}
             </div>
-
-            {/* Saved clips */}
-            {savedClips.length > 0 && (
-              <div className="mt-8 w-full">
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle2 className="h-3.5 w-3.5" style={{ color: "#83F714" }} />
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#94A3B8" }}>
-                    Clipes salvos
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {savedClips.map((clip, i) => (
-                    <div
-                      key={clip.id || i}
-                      className="flex items-center gap-3 p-3 rounded-lg"
-                      style={{ backgroundColor: "#12121A", border: "1px solid rgba(255,255,255,0.05)" }}
-                    >
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: clip.status === "done" ? "#83F714" : clip.status === "processing" ? "#3377AF" : "#fbbf24" }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-white truncate">{clip.video_title}</p>
-                        <p className="text-[10px]" style={{ color: "#94A3B8" }}>
-                          {formatSeconds(clip.start_time)} - {formatSeconds(clip.end_time)} | {clip.format} | {clip.quality}
-                        </p>
-                      </div>
-                      <span
-                        className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
-                        style={{
-                          backgroundColor: clip.status === "done" ? "rgba(131,247,20,0.1)" : clip.status === "processing" ? "rgba(51,119,175,0.1)" : "rgba(251,191,36,0.1)",
-                          color: clip.status === "done" ? "#83F714" : clip.status === "processing" ? "#3377AF" : "#fbbf24",
-                        }}
-                      >
-                        {clip.status === "done" ? "Pronto" : clip.status === "processing" ? "Processando" : "Pendente"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
-        )}
-      </div>
+
+          {/* Options */}
+          <div className="p-4 rounded-xl space-y-4" style={{ backgroundColor: "#12121A", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-white">Legendas automaticas</span>
+              <Switch checked={autoSubs} onCheckedChange={setAutoSubs} />
+            </div>
+            <div>
+              <label className="text-[11px] block mb-1.5" style={{ color: "#94A3B8" }}>Marca d'agua</label>
+              <Input value={autoWatermark} onChange={(e) => setAutoWatermark(e.target.value)} placeholder="@orlandofastpass"
+                className="text-sm h-10" style={{ backgroundColor: "#0A0A0F", borderColor: "rgba(255,255,255,0.08)", color: "white" }} />
+            </div>
+          </div>
+
+          {/* How it works */}
+          <div className="p-4 rounded-xl" style={{ backgroundColor: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.1)" }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: "#f59e0b" }}>Como funciona:</p>
+            <ul className="space-y-1.5">
+              {["Baixa o video completo", "Analisa mudancas de cena", "Transcreve com Whisper IA", "Seleciona os melhores momentos", "Gera os clipes em vertical (9:16)", "Entrega no Discord + app"].map((t, i) => (
+                <li key={i} className="text-[11px] flex items-start gap-2" style={{ color: "#94A3B8" }}>
+                  <span style={{ color: "#f59e0b" }}>{i + 1}.</span> {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Submit */}
+          <button onClick={startAutoClipper} disabled={autoProcessing || !autoUrl.trim()}
+            className="w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+            style={{ background: autoProcessing ? "#12121A" : "linear-gradient(135deg, #f59e0b, #ef4444)", color: autoProcessing ? "#94A3B8" : "white" }}>
+            {autoProcessing ? <><Loader2 className="h-5 w-5 animate-spin" /> Processando...</> : <><Zap className="h-5 w-5" /> Gerar Clipes com IA</>}
+          </button>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

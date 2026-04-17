@@ -57,8 +57,10 @@ export function BotCommands() {
       if (fetchError) throw fetchError;
       setCommands((data as unknown as BotCommand[]) || []);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Erro ao carregar comandos");
+    } catch {
+      // Table might not exist yet — show empty state without error
+      setCommands([]);
+      setError(null);
     } finally {
       setLoading(false);
     }
