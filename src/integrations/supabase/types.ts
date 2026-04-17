@@ -38,6 +38,54 @@ export type Database = {
         }
         Relationships: []
       }
+      video_clips: {
+        Row: {
+          created_at: string | null
+          crop_position: string
+          end_time: number
+          format: string
+          id: string
+          output_url: string | null
+          quality: string
+          start_time: number
+          status: string
+          text_overlay: Json | null
+          thumbnail_url: string | null
+          video_title: string | null
+          youtube_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          crop_position?: string
+          end_time?: number
+          format?: string
+          id?: string
+          output_url?: string | null
+          quality?: string
+          start_time?: number
+          status?: string
+          text_overlay?: Json | null
+          thumbnail_url?: string | null
+          video_title?: string | null
+          youtube_url: string
+        }
+        Update: {
+          created_at?: string | null
+          crop_position?: string
+          end_time?: number
+          format?: string
+          id?: string
+          output_url?: string | null
+          quality?: string
+          start_time?: number
+          status?: string
+          text_overlay?: Json | null
+          thumbnail_url?: string | null
+          video_title?: string | null
+          youtube_url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
