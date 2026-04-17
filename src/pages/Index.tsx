@@ -217,6 +217,8 @@ const Index = () => {
       gradientFrom: template.gradientFrom,
       gradientTo: template.gradientTo,
       overlayOpacity: template.overlayOpacity,
+      ...(template.titlePosition ? { titlePosition: template.titlePosition } : {}),
+      ...(template.bodyPosition ? { bodyPosition: template.bodyPosition } : {}),
     }));
     setCarousel({ ...carousel, slides: updated });
   };

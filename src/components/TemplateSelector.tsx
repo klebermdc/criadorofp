@@ -10,16 +10,15 @@ interface TemplateSelectorProps {
 
 const CATEGORIES: TemplateCategory[] = [
   "Todos",
-  "Business",
+  "Profissional",
   "Criativo",
+  "Educativo",
+  "Marketing",
   "Lifestyle",
-  "Tech",
-  "Editorial",
-  "Minimalista",
-  "Bold",
   "Elegante",
   "Social Media",
-  "Educacao",
+  "Bold",
+  "OFP",
 ];
 
 const FEATURED_IDS = ["dark-pro", "neon-glow", "startup-pitch", "retro-wave", "midnight-luxe", "youtube-thumb"];

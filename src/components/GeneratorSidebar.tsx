@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { STYLES, CarouselStyle, CarouselData, TONES, CarouselTone, SLIDE_COUNTS } from "@/types/carousel";
+import { STYLES, CarouselStyle, CarouselData, TONES, CarouselTone, SLIDE_COUNTS, SLIDE_TEMPLATES, SlideTemplate, TemplateCategory } from "@/types/carousel";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Sparkles, History, Trash2, ImageIcon, Wand2, Clock } from "lucide-react";
+import { Loader2, Sparkles, History, Trash2, ImageIcon, Wand2, Clock, LayoutTemplate, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -282,6 +282,28 @@ export function GeneratorSidebar({ onGenerated, onLoadCarousel, onUpdateSlides, 
             </div>
           </div>
 
+          {/* Templates section */}
+          <TemplatesSection onApplyTemplate={(t) => {
+            if (currentCarousel) {
+              onUpdateSlides((prev) => ({
+                ...prev,
+                slides: prev.slides.map((s) => ({
+                  ...s,
+                  titleStyle: { ...s.titleStyle, ...t.titleStyle },
+                  bodyStyle: { ...s.bodyStyle, ...t.bodyStyle },
+                  gradientFrom: t.gradientFrom,
+                  gradientTo: t.gradientTo,
+                  overlayOpacity: t.overlayOpacity,
+                  ...(t.titlePosition ? { titlePosition: t.titlePosition } : {}),
+                  ...(t.bodyPosition ? { bodyPosition: t.bodyPosition } : {}),
+                })),
+              }));
+              toast.success(`Template "${t.name}" aplicado!`);
+            } else {
+              toast.error("Gere um carrossel primeiro");
+            }
+          }} />
+
           {/* Generate button */}
           <button
             onClick={generate}
@@ -391,6 +413,88 @@ export function GeneratorSidebar({ onGenerated, onLoadCarousel, onUpdateSlides, 
           </div>
         </div>
       </ScrollArea>
+    </div>
+  );
+}
+
+// ===== Templates Section =====
+
+const CATEGORIES: TemplateCategory[] = ["Todos", "Profissional", "Criativo", "Educativo", "Marketing", "Lifestyle", "Elegante", "Social Media", "Bold", "OFP"];
+
+function TemplatesSection({ onApplyTemplate }: { onApplyTemplate: (t: SlideTemplate) => void }) {
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState<TemplateCategory>("Todos");
+
+  const filtered = category === "Todos"
+    ? SLIDE_TEMPLATES
+    : SLIDE_TEMPLATES.filter((t) => t.category === category);
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between py-3 px-3 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
+        style={{ backgroundColor: "#12121A", border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8" }}
+      >
+        <div className="flex items-center gap-2">
+          <LayoutTemplate className="h-4 w-4" style={{ color: "#3377AF" }} />
+          <span>Templates Prontos</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(51,119,175,0.15)", color: "#3377AF" }}>
+            {SLIDE_TEMPLATES.length}
+          </span>
+        </div>
+        {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2">
+          {/* Category pills */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {CATEGORIES.map((cat) => {
+              const count = cat === "Todos" ? SLIDE_TEMPLATES.length : SLIDE_TEMPLATES.filter((t) => t.category === cat).length;
+              if (count === 0 && cat !== "Todos") return null;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setCategory(cat)}
+                  className="shrink-0 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap"
+                  style={{
+                    backgroundColor: category === cat ? "rgba(51,119,175,0.2)" : "#12121A",
+                    color: category === cat ? "#3377AF" : "#94A3B8",
+                    border: `1px solid ${category === cat ? "#3377AF" : "rgba(255,255,255,0.06)"}`,
+                  }}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Template grid */}
+          <div className="grid grid-cols-3 gap-1.5 max-h-60 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+            {filtered.slice(0, 18).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => onApplyTemplate(t)}
+                className="h-16 rounded-lg transition-all hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-0.5 text-center px-1 relative overflow-hidden"
+                style={{
+                  background: `linear-gradient(180deg, ${t.gradientFrom}, ${t.gradientTo})`,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <span className="text-[10px] font-bold truncate w-full" style={{ color: t.titleStyle.color }}>{t.name}</span>
+                <span className="text-[8px] opacity-60" style={{ color: t.bodyStyle.color }}>Aa Bb</span>
+              </button>
+            ))}
+          </div>
+
+          {filtered.length > 18 && (
+            <p className="text-[10px] text-center" style={{ color: "#94A3B8" }}>
+              +{filtered.length - 18} templates — use o filtro por categoria
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
