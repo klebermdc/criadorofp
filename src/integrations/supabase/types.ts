@@ -14,29 +14,124 @@ export type Database = {
   }
   public: {
     Tables: {
+      brands: {
+        Row: {
+          accent_color: string | null
+          created_at: string | null
+          description: string | null
+          font_body: string | null
+          font_display: string | null
+          id: string
+          instagram_handle: string | null
+          logo_url: string | null
+          name: string
+          primary_color: string | null
+          secondary_color: string | null
+          tone_of_voice: string | null
+          website: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          created_at?: string | null
+          description?: string | null
+          font_body?: string | null
+          font_display?: string | null
+          id?: string
+          instagram_handle?: string | null
+          logo_url?: string | null
+          name: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          tone_of_voice?: string | null
+          website?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          created_at?: string | null
+          description?: string | null
+          font_body?: string | null
+          font_display?: string | null
+          id?: string
+          instagram_handle?: string | null
+          logo_url?: string | null
+          name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          tone_of_voice?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       carousels: {
         Row: {
           created_at: string | null
           id: string
+          scheduled_date: string | null
           slides: Json
+          status: string | null
           style: string
           topic: string
         }
         Insert: {
           created_at?: string | null
           id?: string
+          scheduled_date?: string | null
           slides?: Json
+          status?: string | null
           style: string
           topic: string
         }
         Update: {
           created_at?: string | null
           id?: string
+          scheduled_date?: string | null
           slides?: Json
+          status?: string | null
           style?: string
           topic?: string
         }
         Relationships: []
+      }
+      instagram_accounts: {
+        Row: {
+          access_token: string
+          brand_id: string | null
+          connected_at: string | null
+          id: string
+          ig_user_id: string
+          page_id: string
+          profile_picture_url: string | null
+          username: string
+        }
+        Insert: {
+          access_token: string
+          brand_id?: string | null
+          connected_at?: string | null
+          id?: string
+          ig_user_id: string
+          page_id: string
+          profile_picture_url?: string | null
+          username: string
+        }
+        Update: {
+          access_token?: string
+          brand_id?: string | null
+          connected_at?: string | null
+          id?: string
+          ig_user_id?: string
+          page_id?: string
+          profile_picture_url?: string | null
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_accounts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       video_clips: {
         Row: {
