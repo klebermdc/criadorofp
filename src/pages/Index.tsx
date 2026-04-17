@@ -13,12 +13,13 @@ import { YouTubeClipper } from "@/components/YouTubeClipper";
 import { BotCommands } from "@/components/BotCommands";
 import { VideoToCarousel } from "@/components/VideoToCarousel";
 import { VideoTranscriber } from "@/components/VideoTranscriber";
+import { InstagramDownloader } from "@/components/InstagramDownloader";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PenTool, FolderOpen, CalendarDays, BarChart3, PanelLeft, Eye,
   Building2, Film, Instagram, MessageSquare, MoreHorizontal, X,
-  Video, FileText,
+  Video, FileText, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ofpLogo from "@/assets/ofp-logo.png";
@@ -243,6 +244,7 @@ const Index = () => {
 
   // "Mais" drawer items
   const drawerItems = [
+    { id: "insta-download", icon: Instagram, label: "Baixar do Insta" },
     { id: "video-carousel", icon: Video, label: "Video → Carrossel" },
     { id: "transcricao", icon: FileText, label: "Transcricao" },
     { id: "calendario", icon: CalendarDays, label: "Calendario" },
@@ -307,6 +309,9 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="bot" className="gap-1.5 text-xs data-[state=active]:bg-[#3377AF]/20 data-[state=active]:text-[#3377AF]">
               <MessageSquare className="h-3.5 w-3.5" /> Bot
+            </TabsTrigger>
+            <TabsTrigger value="insta-download" className="gap-1.5 text-xs data-[state=active]:bg-[#E1306C]/20 data-[state=active]:text-[#E1306C]">
+              <Instagram className="h-3.5 w-3.5" /> Insta DL
             </TabsTrigger>
             <TabsTrigger value="video-carousel" className="gap-1.5 text-xs data-[state=active]:bg-[#83F714]/20 data-[state=active]:text-[#83F714]">
               <Video className="h-3.5 w-3.5" /> Video→Post
@@ -410,6 +415,10 @@ const Index = () => {
 
         {activeTab === "bot" && (
           <BotCommands />
+        )}
+
+        {activeTab === "insta-download" && (
+          <InstagramDownloader onCarouselGenerated={(data) => { setCarousel(data); setActiveTab("criar"); }} />
         )}
 
         {activeTab === "video-carousel" && (

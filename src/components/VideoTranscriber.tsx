@@ -192,7 +192,24 @@ export function VideoTranscriber({}: VideoTranscriberProps) {
     toast.success("Removido");
   };
 
+  // Cache for fetched transcription data from Storage
+  const [fetchedTranscriptions, setFetchedTranscriptions] = useState<Record<string, any>>({});
+
+  // Fetch full transcription from Storage URL when needed
+  useEffect(() => {
+    if (!selectedRecord) return;
+    const url = (selectedRecord.text_overlay as any)?.transcription_url || selectedRecord.output_url;
+    if (url && url.endsWith(".json") && !fetchedTranscriptions[selectedRecord.id]) {
+      fetch(url).then(r => r.json()).then(data => {
+        setFetchedTranscriptions(prev => ({ ...prev, [selectedRecord.id]: data }));
+      }).catch(() => {});
+    }
+  }, [selectedRecord?.id, selectedRecord?.status]);
+
   const getFullText = (record: TranscriptionRecord): string => {
+    // Check fetched data from Storage first
+    const fetched = fetchedTranscriptions[record.id];
+    if (fetched?.text) return fetched.text;
     const overlay = record.text_overlay;
     if (!overlay) return "";
     if (overlay.text) return overlay.text;
@@ -201,6 +218,8 @@ export function VideoTranscriber({}: VideoTranscriberProps) {
   };
 
   const getSegments = (record: TranscriptionRecord): TranscriptionSegment[] => {
+    const fetched = fetchedTranscriptions[record.id];
+    if (fetched?.segments) return fetched.segments;
     return record.text_overlay?.segments || [];
   };
 
