@@ -14,6 +14,7 @@ import { BotCommands } from "@/components/BotCommands";
 import { VideoToCarousel } from "@/components/VideoToCarousel";
 import { VideoTranscriber } from "@/components/VideoTranscriber";
 import { InstagramDownloader } from "@/components/InstagramDownloader";
+import { PostCreator } from "@/components/PostCreator";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -329,65 +330,13 @@ const Index = () => {
 
       {/* ===== MAIN CONTENT ===== */}
       <div className="flex-1 overflow-hidden relative">
-        {/* Criar tab */}
+        {/* Criar tab — POST CREATOR */}
         {activeTab === "criar" && (
-          <div className="flex flex-col h-full">
-            {/* Mobile editor toggle — Gerador / Preview */}
-            <div className="flex sm:hidden" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", backgroundColor: "#12121A" }}>
-              <Button
-                variant="ghost"
-                className={`flex-1 rounded-none gap-2 h-12 min-h-[48px] ${mobileEditorTab === "generator" ? "text-[#3377AF]" : "text-[#94A3B8]"}`}
-                onClick={() => setMobileEditorTab("generator")}
-                style={mobileEditorTab === "generator" ? { backgroundColor: "rgba(51,119,175,0.1)" } : {}}
-              >
-                <PanelLeft className="h-4 w-4" />
-                Gerador
-              </Button>
-              <Button
-                variant="ghost"
-                className={`flex-1 rounded-none gap-2 h-12 min-h-[48px] ${mobileEditorTab === "preview" ? "text-[#3377AF]" : "text-[#94A3B8]"}`}
-                onClick={() => setMobileEditorTab("preview")}
-                style={mobileEditorTab === "preview" ? { backgroundColor: "rgba(51,119,175,0.1)" } : {}}
-              >
-                <Eye className="h-4 w-4" />
-                Preview
-              </Button>
-            </div>
-
-            <div className="flex flex-1 overflow-hidden">
-              {/* Mobile: show/hide via CSS classes; Desktop: always show */}
-              <div className={`sm:flex ${mobileEditorTab === "generator" ? "flex w-full sm:w-auto" : "hidden"}`}>
-                <GeneratorSidebar
-                  onGenerated={(data) => { setCarousel(data); if (isMobile) setMobileEditorTab("preview"); }}
-                  onLoadCarousel={(data) => { setCarousel(data); if (isMobile) setMobileEditorTab("preview"); }}
-                  onUpdateSlides={handleUpdateSlides}
-                  currentCarousel={carousel}
-                />
-              </div>
-              <div className={`sm:flex sm:flex-1 ${mobileEditorTab === "preview" ? "flex flex-1" : "hidden"}`}>
-                <CarouselPreview
-                  slides={carousel?.slides || []}
-                  carousel={carousel}
-                  onUpdateSlide={handleUpdateSlide}
-                  onUpdateSlideStyle={handleUpdateSlideStyle}
-                  onAddSticker={handleAddSticker}
-                  onRemoveSticker={handleRemoveSticker}
-                  onMoveSticker={handleMoveSticker}
-                  onAddTextBox={handleAddTextBox}
-                  onMoveTextBox={handleMoveTextBox}
-                  onUpdateTextBox={handleUpdateTextBox}
-                  onAddShape={handleAddShape}
-                  onMoveShape={handleMoveShape}
-                  onAddImage={handleAddImage}
-                  onMoveImage={handleMoveImage}
-                  onResizeImage={handleResizeImage}
-                  onToggleElementVisibility={handleToggleElementVisibility}
-                  onDeleteElement={handleDeleteElement}
-                  onApplyTemplate={handleApplyTemplate}
-                />
-              </div>
-            </div>
-          </div>
+          <PostCreator
+            initialCarousel={carousel}
+            onSave={(data) => setCarousel(data)}
+            onBack={() => setActiveTab("posts")}
+          />
         )}
 
         {/* Reels — display trick for persistence */}
